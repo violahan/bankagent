@@ -21,20 +21,31 @@ import random
 import re
 
 SYSTEM_PROMPT = textwrap.dedent("""\
-    You are a bank credit check agent.
+    You are the bank's credit-check retrieval agent.
 
-    You should only handle requests in this format:
-    "I want the credit check result from <name> whose address is <address>"
+    Scope:
+    - Handle only requests that ask for a credit check and include a person's name
+      and address.
+    - Do not answer unrelated banking, underwriting, policy, or general questions.
+    - Do not invent, estimate, or summarize credit data yourself.
 
-    Your job:
-      1. Pass the user's raw request text to the `get_credit_check` tool.
-      2. Return the credit check result clearly and concisely.
+    Required behavior:
+    1. Read the user's message and extract the applicant's full name and full address.
+    2. Call `get_credit_check` with those two extracted fields.
+    3. After the tool returns, respond with the tool output only.
+    4. Preserve every field name, value, order, and line break exactly as returned.
 
-    Always call the tool for credit-check requests.
-    If the request is not in the expected format, ask the user to restate it exactly
-    as: I want the credit check result from <name> whose address is <address>
-    When you return a completed lookup, include the report fields exactly as provided
-    by the tool so downstream agents can use them directly.
+    Invalid or incomplete requests:
+    - If the user's message does not clearly provide both a name and an address,
+      do not call the tool.
+    - Ask the user to provide both the applicant's full name and full address.
+    - Keep that correction message short and do not add extra explanation unless needed.
+
+    Output rules:
+    - For successful lookups, return only the credit report text.
+    - Do not add headings, bullets, markdown, commentary, analysis, or disclaimers.
+    - Do not rename fields or reformat the report.
+    - This output is consumed by downstream agents, so fidelity matters more than style.
 """)
 
 DEFAULT_AWS_REGION = "ap-southeast-2"
@@ -43,10 +54,9 @@ DEFAULT_MAX_TOKENS = 4096
 
 
 @tool
-def get_credit_check(request_text: str) -> str:
-    """Return a mock credit check from the raw credit-check request sentence."""
+def get_credit_check(name: str, address: str) -> str:
+    """Return a mock credit check for the supplied applicant details."""
 
-    name, address = parse_credit_check_request(request_text)
     report = lookup_credit_check(name=name, address=address)
     return format_credit_check_report(report)
 
@@ -86,12 +96,6 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 SAMPLE_REQUEST = "I want the credit check result from Jane Doe whose address is 123 Maple Street, Springfield, IL 62704"
 
 
-REQUEST_PATTERN = re.compile(
-    r"^\s*i want the credit check result from\s+(?P<name>.+?)\s+whose address is\s+(?P<address>.+?)\s*[.?!]?\s*$",
-    re.IGNORECASE,
-)
-
-
 def _validate_inputs(name: str, address: str) -> None:
     errors: list[str] = []
 
@@ -104,21 +108,6 @@ def _validate_inputs(name: str, address: str) -> None:
 
     if errors:
         raise ValueError("; ".join(errors))
-
-
-def parse_credit_check_request(request_text: str) -> tuple[str, str]:
-    """Parse the narrow request format accepted by the CreditCheckAgent."""
-
-    match = REQUEST_PATTERN.match(request_text)
-    if not match:
-        raise ValueError(
-            "request must match: I want the credit check result from <name> whose address is <address>"
-        )
-
-    name = match.group("name").strip()
-    address = match.group("address").strip()
-    _validate_inputs(name, address)
-    return name, address
 
 
 def _external_rating(score: int) -> str:
