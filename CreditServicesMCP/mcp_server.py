@@ -1,19 +1,6 @@
-from pathlib import Path
-import sys
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from shared_credit_check import (  # noqa: E402
-    format_credit_check_report,
-    lookup_credit_check,
-    parse_credit_check_request,
-)
 
 
 RULE_SETS: dict[str, dict] = {
@@ -67,13 +54,65 @@ RULE_SETS: dict[str, dict] = {
     },
 }
 
+CREDIT_CHECK_LOOKUPS: dict[str, dict[str, int | float | str]] = {
+    "jane_doe": {
+        "name": "Jane Doe",
+        "address": "123 Maple Street, Springfield, IL 62704",
+        "bureau_score": 742,
+        "debt_to_income_ratio": 0.31,
+        "credit_utilisation": 0.28,
+        "delinquency_count": 0,
+        "bankruptcies": 0,
+        "hard_inquiries_last_6_months": 1,
+        "external_rating": "A",
+    },
+    "john_smith": {
+        "name": "John Smith",
+        "address": "456 Oak Avenue, Denver, CO 80203",
+        "bureau_score": 668,
+        "debt_to_income_ratio": 0.42,
+        "credit_utilisation": 0.58,
+        "delinquency_count": 1,
+        "bankruptcies": 0,
+        "hard_inquiries_last_6_months": 3,
+        "external_rating": "C",
+    },
+    "maria_garcia": {
+        "name": "Maria Garcia",
+        "address": "789 Pine Road, Austin, TX 78701",
+        "bureau_score": 721,
+        "debt_to_income_ratio": 0.35,
+        "credit_utilisation": 0.41,
+        "delinquency_count": 0,
+        "bankruptcies": 0,
+        "hard_inquiries_last_6_months": 2,
+        "external_rating": "B",
+    },
+}
+
+
+def _format_credit_check_report(report: dict[str, int | float | str]) -> str:
+    return "\n".join(
+        [
+            f"Name: {report['name']}",
+            f"Address: {report['address']}",
+            f"Bureau score: {report['bureau_score']}",
+            f"Debt-to-income ratio: {report['debt_to_income_ratio']:.2f}",
+            f"Credit utilisation: {report['credit_utilisation']:.2f}",
+            f"Number of delinquencies: {report['delinquency_count']}",
+            f"Bankruptcies: {report['bankruptcies']}",
+            f"Hard inquiries in last 6 months: {report['hard_inquiries_last_6_months']}",
+            f"External rating: {report['external_rating']}",
+        ]
+    )
+
 
 mcp = FastMCP(
     host="0.0.0.0",
     stateless_http=True,
     name="credit-services",
     instructions=(
-        "Use this server to fetch hardcoded bank credit policies and run mock "
+        "Use this server to fetch hardcoded bank credit policies and applicant "
         "credit checks."
     ),
 )
@@ -100,20 +139,24 @@ def get_credit_check_rules(policy_type: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_credit_check(request_text: str) -> dict[str, Any]:
-    """Return a mock credit check from the raw request sentence.
+def get_credit_check(applicant_id: str) -> dict[str, Any]:
+    """Return a hardcoded credit check for the requested applicant.
 
     Args:
-        request_text: Request in the form
-            `I want the credit check result from <name> whose address is <address>`.
+        applicant_id: One of `jane_doe`, `john_smith`, or `maria_garcia`.
     """
-    name, address = parse_credit_check_request(request_text)
-    report = lookup_credit_check(name=name, address=address)
+    if applicant_id not in CREDIT_CHECK_LOOKUPS:
+        supported = ", ".join(sorted(CREDIT_CHECK_LOOKUPS))
+        raise ValueError(
+            f"Unsupported applicant_id '{applicant_id}'. Supported values: {supported}."
+        )
+
+    report = CREDIT_CHECK_LOOKUPS[applicant_id]
     return {
         "source": "demo_credit_check",
-        "request_text": request_text.strip(),
+        "applicant_id": applicant_id,
         "report": report,
-        "formatted_report": format_credit_check_report(report),
+        "formatted_report": _format_credit_check_report(report),
     }
 
 
@@ -128,10 +171,11 @@ def policy_overview() -> dict[str, Any]:
         "rule_input_contract": ["policy_type"],
         "supported_policy_types": sorted(RULE_SETS),
         "rule_output_contract": ["source", "policy_type", "rules"],
-        "credit_check_input_contract": ["request_text"],
+        "credit_check_input_contract": ["applicant_id"],
+        "supported_applicant_ids": sorted(CREDIT_CHECK_LOOKUPS),
         "credit_check_output_contract": [
             "source",
-            "request_text",
+            "applicant_id",
             "report",
             "formatted_report",
         ],
@@ -142,10 +186,10 @@ def policy_overview() -> dict[str, Any]:
 def credit_rules_prompt() -> str:
     """Provide a ready-to-use prompt for the available MCP tools."""
     types = ", ".join(f"`{t}`" for t in sorted(RULE_SETS))
+    applicants = ", ".join(f"`{a}`" for a in sorted(CREDIT_CHECK_LOOKUPS))
     return (
         f"Call `get_credit_check_rules` with one of these policy types: {types}. "
-        "Call `get_credit_check` with "
-        "`I want the credit check result from <name> whose address is <address>`."
+        f"Call `get_credit_check` with one of these applicant ids: {applicants}."
     )
 
 
