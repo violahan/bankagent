@@ -6,3 +6,4 @@ uvicorn
 fastapi
 anthropic
 ollama
+requests
