@@ -1,7 +1,7 @@
-default_agent: bank_rules_mcp_server
+default_agent: bank_rules_mcp_server_oauth
 agents:
-  bank_rules_mcp_server:
-    name: bank_rules_mcp_server
+  bank_rules_mcp_server_oauth:
+    name: bank_rules_mcp_server_oauth
     language: python
     node_version: '20'
     entrypoint: /Users/viohan/Desktop/BankAgent/RuleFetchMCP/mcp_server.py
@@ -11,11 +11,11 @@ agents:
     container_runtime: none
     source_path: /Users/viohan/Desktop/BankAgent/RuleFetchMCP
     aws:
-      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKRuntime-ap-southeast-2-fe140d05ce
+      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKRuntime-ap-southeast-2-e1404cecd2
       execution_role_auto_create: false
       account: '590183866516'
       region: ap-southeast-2
-      ecr_repository: 590183866516.dkr.ecr.ap-southeast-2.amazonaws.com/bedrock-agentcore-bank_rules_mcp_server
+      ecr_repository: 590183866516.dkr.ecr.ap-southeast-2.amazonaws.com/bedrock-agentcore-bank_rules_mcp_server_oauth
       ecr_auto_create: false
       s3_path: null
       s3_auto_create: false
@@ -30,12 +30,12 @@ agents:
         idle_runtime_session_timeout: null
         max_lifetime: null
     bedrock_agentcore:
-      agent_id: bank_rules_mcp_server-lbEMT9Cr0z
-      agent_arn: arn:aws:bedrock-agentcore:ap-southeast-2:590183866516:runtime/bank_rules_mcp_server-lbEMT9Cr0z
+      agent_id: bank_rules_mcp_server_oauth-dk7JZVCwJ9
+      agent_arn: arn:aws:bedrock-agentcore:ap-southeast-2:590183866516:runtime/bank_rules_mcp_server_oauth-dk7JZVCwJ9
       agent_session_id: null
     codebuild:
-      project_name: bedrock-agentcore-bank_rules_mcp_server-builder
-      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKCodeBuild-ap-southeast-2-fe140d05ce
+      project_name: bedrock-agentcore-bank_rules_mcp_server_oauth-builder
+      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKCodeBuild-ap-southeast-2-e1404cecd2
       source_bucket: bedrock-agentcore-codebuild-sources-590183866516-ap-southeast-2
     memory:
       mode: NO_MEMORY
@@ -54,8 +54,14 @@ agents:
       signing_algorithm: ES384
       issuer_url: null
       duration_seconds: 300
-    authorizer_configuration: null
-    request_header_configuration: null
+    authorizer_configuration:
+      customJWTAuthorizer:
+        discoveryUrl: https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_6AnwIssYD/.well-known/openid-configuration
+        allowedClients:
+        - 2eusmbe7ujgh611vh4m4p5n22g
+    request_header_configuration:
+      requestHeaderAllowlist:
+      - Authorization
     oauth_configuration: null
     api_key_env_var_name: null
     api_key_credential_provider_name: null
