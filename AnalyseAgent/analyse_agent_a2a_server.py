@@ -42,7 +42,7 @@ SYSTEM_PROMPT = textwrap.dedent("""\
       b. If the user did not already provide a credit-check result but did provide
          name and address, call the `get_credit_check` tool with those exact
          `name` and `address` values to generate the credit-check result.
-      c. Call the `get_credit_check_rules` tool with the matching policy_type
+      c. Call the `get_loan_application_rules` tool with the matching policy_type
          (one of: personal_loan, vehicle_loan, mortgage_refinance) to retrieve
          the bank's current credit policy.
       d. Compare every field in the applicant's profile and credit report

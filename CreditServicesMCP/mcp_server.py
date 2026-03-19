@@ -146,7 +146,7 @@ mcp = FastMCP(
 
 
 @mcp.tool()
-def get_credit_check_rules(policy_type: str) -> dict[str, Any]:
+def get_loan_application_rules(policy_type: str) -> dict[str, Any]:
     """Return a hardcoded bank credit policy for the requested product type.
 
     Args:
@@ -155,7 +155,7 @@ def get_credit_check_rules(policy_type: str) -> dict[str, Any]:
     if policy_type not in RULE_SETS:
         supported = ", ".join(sorted(RULE_SETS))
         return _invalid_tool_response(
-            tool_name="get_credit_check_rules",
+            tool_name="get_loan_application_rules",
             message=(
                 f"Unsupported policy_type '{policy_type}'. "
                 f"Supported values: {supported}."
@@ -213,7 +213,7 @@ def policy_overview() -> dict[str, Any]:
         "server": "credit-services",
         "policy_source": "rules",
         "credit_check_source": "credit_check",
-        "tools": ["get_credit_check_rules", "get_credit_check"],
+        "tools": ["get_loan_application_rules", "get_credit_check"],
         "rule_input_contract": ["policy_type"],
         "supported_policy_types": sorted(RULE_SETS),
         "rule_output_contract": ["ok", "source", "policy_type", "rules"],
@@ -234,7 +234,7 @@ def credit_rules_prompt() -> str:
     """Provide a ready-to-use prompt for the available MCP tools."""
     types = ", ".join(f"`{t}`" for t in sorted(RULE_SETS))
     return (
-        f"Call `get_credit_check_rules` with one of these policy types: {types}. "
+        f"Call `get_loan_application_rules` with one of these policy types: {types}. "
         "Call `get_credit_check` with `name` and `address`."
     )
 
