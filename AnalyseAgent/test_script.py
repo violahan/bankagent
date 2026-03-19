@@ -48,7 +48,7 @@ SYSTEM_PROMPT = textwrap.dedent("""\
 
 DEFAULT_MCP_URL = "http://localhost:8000/mcp"
 DEFAULT_AWS_REGION = "ap-southeast-2"
-DEFAULT_MODEL = "apac.anthropic.claude-3-7-sonnet-20250219-v1:0"
+DEFAULT_MODEL = "apac.anthropic.claude-sonnet-4-20250514-v1:0"
 DEFAULT_MAX_TOKENS = 4096
 
 
