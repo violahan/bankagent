@@ -75,6 +75,15 @@ def _validate_inputs(name: str, address: str) -> tuple[str, str]:
     return cleaned_name, cleaned_address
 
 
+def _invalid_tool_response(tool_name: str, message: str, requirements: list[str]) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "tool": tool_name,
+        "message": message,
+        "requirements": requirements,
+    }
+
+
 def _external_rating(score: int) -> str:
     if score >= 740:
         return "A"
@@ -145,11 +154,20 @@ def get_credit_check_rules(policy_type: str) -> dict[str, Any]:
     """
     if policy_type not in RULE_SETS:
         supported = ", ".join(sorted(RULE_SETS))
-        raise ValueError(
-            f"Unsupported policy_type '{policy_type}'. Supported values: {supported}."
+        return _invalid_tool_response(
+            tool_name="get_credit_check_rules",
+            message=(
+                f"Unsupported policy_type '{policy_type}'. "
+                f"Supported values: {supported}."
+            ),
+            requirements=[
+                "Provide `policy_type`.",
+                f"Use one of: {supported}.",
+            ],
         )
 
     return {
+        "ok": True,
         "source": "demo_rules",
         "policy_type": policy_type,
         "rules": RULE_SETS[policy_type],
@@ -164,9 +182,22 @@ def get_credit_check(name: str, address: str) -> dict[str, Any]:
         name: Applicant name.
         address: Applicant address.
     """
-    cleaned_name, cleaned_address = _validate_inputs(name, address)
+    try:
+        cleaned_name, cleaned_address = _validate_inputs(name, address)
+    except ValueError as exc:
+        return _invalid_tool_response(
+            tool_name="get_credit_check",
+            message=str(exc),
+            requirements=[
+                "Provide `name` with at least 3 characters.",
+                "Provide `address` with at least 10 characters.",
+                "Ensure `address` contains a street number.",
+            ],
+        )
+
     report = _lookup_credit_check(name=cleaned_name, address=cleaned_address)
     return {
+        "ok": True,
         "source": "demo_credit_check",
         "name": cleaned_name,
         "address": cleaned_address,
@@ -185,9 +216,10 @@ def policy_overview() -> dict[str, Any]:
         "tools": ["get_credit_check_rules", "get_credit_check"],
         "rule_input_contract": ["policy_type"],
         "supported_policy_types": sorted(RULE_SETS),
-        "rule_output_contract": ["source", "policy_type", "rules"],
+        "rule_output_contract": ["ok", "source", "policy_type", "rules"],
         "credit_check_input_contract": ["name", "address"],
         "credit_check_output_contract": [
+            "ok",
             "source",
             "name",
             "address",

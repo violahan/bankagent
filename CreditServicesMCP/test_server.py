@@ -33,6 +33,7 @@ async def test_call_tool_returns_correct_rules(policy_type: str):
     else:
         payload = result
 
+    assert payload["ok"] is True
     assert payload["source"] == "demo_rules"
     assert payload["policy_type"] == policy_type
     assert payload["rules"] == RULE_SETS[policy_type]
@@ -41,8 +42,20 @@ async def test_call_tool_returns_correct_rules(policy_type: str):
 
 @pytest.mark.asyncio
 async def test_call_tool_invalid_policy_type():
-    with pytest.raises((ValueError, Exception)):
-        await mcp.call_tool("get_credit_check_rules", {"policy_type": "nonexistent"})
+    result = await mcp.call_tool("get_credit_check_rules", {"policy_type": "nonexistent"})
+
+    if isinstance(result, tuple):
+        content_blocks, raw = result
+        payload = json.loads(content_blocks[0].text)
+    elif isinstance(result, list):
+        payload = json.loads(result[0].text)
+    else:
+        payload = result
+
+    assert payload["ok"] is False
+    assert payload["tool"] == "get_credit_check_rules"
+    assert "Supported values" in payload["message"]
+    assert "Provide `policy_type`." in payload["requirements"]
 
 
 @pytest.mark.asyncio
@@ -62,6 +75,7 @@ async def test_call_credit_check_tool_returns_expected_shape():
 
     report = payload["report"]
 
+    assert payload["ok"] is True
     assert payload["source"] == "demo_credit_check"
     assert payload["name"] == SAMPLE_NAME
     assert payload["address"] == SAMPLE_ADDRESS
@@ -79,11 +93,25 @@ async def test_call_credit_check_tool_returns_expected_shape():
 
 @pytest.mark.asyncio
 async def test_call_credit_check_tool_rejects_invalid_request():
-    with pytest.raises((ValueError, Exception)):
-        await mcp.call_tool(
-            "get_credit_check",
-            {"name": "JD", "address": "Main Street"},
-        )
+    result = await mcp.call_tool(
+        "get_credit_check",
+        {"name": "JD", "address": "Main Street"},
+    )
+
+    if isinstance(result, tuple):
+        content_blocks, raw = result
+        payload = json.loads(content_blocks[0].text)
+    elif isinstance(result, list):
+        payload = json.loads(result[0].text)
+    else:
+        payload = result
+
+    assert payload["ok"] is False
+    assert payload["tool"] == "get_credit_check"
+    assert "name must be at least 3 characters" in payload["message"]
+    assert "address must contain a street number" in payload["message"]
+    assert "Provide `name` with at least 3 characters." in payload["requirements"]
+    assert "Ensure `address` contains a street number." in payload["requirements"]
 
 
 # -- Resources ---------------------------------------------------------------
