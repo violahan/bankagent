@@ -1,0 +1,62 @@
+default_agent: credit_check_a2a_server
+agents:
+  credit_check_a2a_server:
+    name: credit_check_a2a_server
+    language: python
+    node_version: '20'
+    entrypoint: /Users/viohan/Desktop/BankAgent/CreditCheckAgent/credit_check_a2a_server.py
+    deployment_type: container
+    runtime_type: null
+    platform: linux/arm64
+    container_runtime: none
+    source_path: /Users/viohan/Desktop/BankAgent/CreditCheckAgent
+    aws:
+      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKRuntime-ap-southeast-2-3c63cdebc4
+      execution_role_auto_create: false
+      account: '590183866516'
+      region: ap-southeast-2
+      ecr_repository: 590183866516.dkr.ecr.ap-southeast-2.amazonaws.com/bedrock-agentcore-credit_check_a2a_server
+      ecr_auto_create: false
+      s3_path: null
+      s3_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+        network_mode_config: null
+      protocol_configuration:
+        server_protocol: A2A
+      observability:
+        enabled: true
+      lifecycle_configuration:
+        idle_runtime_session_timeout: null
+        max_lifetime: null
+    bedrock_agentcore:
+      agent_id: credit_check_a2a_server-LRprc845Mp
+      agent_arn: arn:aws:bedrock-agentcore:ap-southeast-2:590183866516:runtime/credit_check_a2a_server-LRprc845Mp
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-credit_check_a2a_server-builder
+      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKCodeBuild-ap-southeast-2-3c63cdebc4
+      source_bucket: bedrock-agentcore-codebuild-sources-590183866516-ap-southeast-2
+    memory:
+      mode: NO_MEMORY
+      memory_id: null
+      memory_arn: null
+      memory_name: null
+      event_expiry_days: 30
+      first_invoke_memory_check_done: false
+      was_created_by_toolkit: false
+    identity:
+      credential_providers: []
+      workload: null
+    aws_jwt:
+      enabled: false
+      audiences: []
+      signing_algorithm: ES384
+      issuer_url: null
+      duration_seconds: 300
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null
+    api_key_env_var_name: null
+    api_key_credential_provider_name: null
+    is_generated_by_agentcore_create: false
