@@ -28,21 +28,21 @@ SYSTEM_PROMPT = textwrap.dedent("""\
     You are the bank's credit-check retrieval agent.
 
     Scope:
-    - Handle only requests that ask for a credit check in this exact pattern:
-      I want the credit check result from <name> whose address is <address>
+    - Handle only requests that ask for a credit check and include a person's name
+      and address.
     - Do not answer unrelated banking, underwriting, policy, or general questions.
     - Do not invent, estimate, or summarize credit data yourself.
 
     Required behavior:
-    1. For any valid credit-check request, pass the user's full raw sentence unchanged
-       to the `get_credit_check` tool.
-    2. After the tool returns, respond with the tool output only.
-    3. Preserve every field name, value, order, and line break exactly as returned.
+    1. Read the user's message and extract the applicant's full name and full address.
+    2. Call `get_credit_check` with those two extracted fields.
+    3. After the tool returns, respond with the tool output only.
+    4. Preserve every field name, value, order, and line break exactly as returned.
 
     Invalid or incomplete requests:
-    - If the user's request does not match the required pattern, do not call the tool.
-    - Ask the user to restate it exactly as:
-      I want the credit check result from <name> whose address is <address>
+    - If the user's message does not clearly provide both a name and an address,
+      do not call the tool.
+    - Ask the user to provide both the applicant's full name and full address.
     - Keep that correction message short and do not add extra explanation unless needed.
 
     Output rules:
@@ -65,12 +65,6 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8082"))
 
 
-REQUEST_PATTERN = re.compile(
-    r"^\s*i want the credit check result from\s+(?P<name>.+?)\s+whose address is\s+(?P<address>.+?)\s*[.?!]?\s*$",
-    re.IGNORECASE,
-)
-
-
 def _validate_inputs(name: str, address: str) -> None:
     errors: list[str] = []
 
@@ -83,21 +77,6 @@ def _validate_inputs(name: str, address: str) -> None:
 
     if errors:
         raise ValueError("; ".join(errors))
-
-
-def parse_credit_check_request(request_text: str) -> tuple[str, str]:
-    """Parse the narrow request format accepted by the CreditCheckAgent."""
-
-    match = REQUEST_PATTERN.match(request_text)
-    if not match:
-        raise ValueError(
-            "request must match: I want the credit check result from <name> whose address is <address>"
-        )
-
-    name = match.group("name").strip()
-    address = match.group("address").strip()
-    _validate_inputs(name, address)
-    return name, address
 
 
 def _external_rating(score: int) -> str:
@@ -157,10 +136,9 @@ def format_credit_check_report(report: dict[str, int | float | str]) -> str:
 
 
 @tool
-def get_credit_check(request_text: str) -> str:
-    """Return a mock credit check from the raw credit-check request sentence."""
+def get_credit_check(name: str, address: str) -> str:
+    """Return a mock credit check for the supplied applicant details."""
 
-    name, address = parse_credit_check_request(request_text)
     report = lookup_credit_check(name=name, address=address)
     return format_credit_check_report(report)
 
@@ -175,7 +153,7 @@ model = BedrockModel(
 agent = Agent(
     name="Credit Check Agent",
     description=(
-        "Accepts a narrow credit-check request sentence, extracts the applicant, and "
+        "Extracts applicant details from a credit-check request and "
         "returns bureau score, debt-to-income ratio, credit utilisation, "
         "delinquencies, bankruptcies, hard inquiries, and external rating."
     ),
@@ -195,15 +173,16 @@ a2a_server = A2AServer(
             id="credit_check",
             name="Credit Check",
             description=(
-                "Accepts a single raw request sentence in the form 'I want the "
-                "credit check result from <name> whose address is <address>' and "
-                "returns the credit report in a fixed downstream-friendly format."
+                "Accepts a credit-check request containing an applicant name and "
+                "address, extracts those fields, and returns the credit report in "
+                "a fixed downstream-friendly format."
             ),
             tags=["credit", "bureau", "banking", "loan"],
             examples=[
                 "I want the credit check result from Jane Doe whose address is 123 Maple Street, Springfield, IL 62704.",
                 "I want the credit check result from John Smith whose address is 456 Oak Avenue, Denver, CO 80203.",
                 "I want the credit check result from Priya Patel whose address is 78 King Street, Auckland 1010.",
+                "Get the credit check for Maria Chen at 21 Queen Street, Wellington 6011.",
             ],
         ),
     ],
