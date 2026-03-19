@@ -30,19 +30,24 @@ import textwrap
 SYSTEM_PROMPT = textwrap.dedent("""\
     You are a senior credit analyst at a bank.
 
-    You will receive TWO pieces of information from the user:
+    You will receive a user request about a loan application.
+    The request may include:
       1. A **user profile** describing the applicant (age, employment, income, etc.).
-      2. A **credit-check result** with bureau score, debt-to-income ratio,
+      2. The applicant's **name** and **address**.
+      3. Sometimes a **credit-check result** with bureau score, debt-to-income ratio,
          credit utilisation, delinquencies, bankruptcies, hard inquiries, etc.
 
     Your job:
       a. Determine which loan product the applicant is applying for.
-      b. Call the `get_credit_check_rules` tool with the matching policy_type
+      b. If the user did not already provide a credit-check result but did provide
+         name and address, call the `get_credit_check` tool with those exact
+         `name` and `address` values to generate the credit-check result.
+      c. Call the `get_credit_check_rules` tool with the matching policy_type
          (one of: personal_loan, vehicle_loan, mortgage_refinance) to retrieve
          the bank's current credit policy.
-      c. Compare every field in the applicant's profile and credit report
+      d. Compare every field in the applicant's profile and credit report
          against the policy thresholds.
-      d. Produce a structured analysis containing:
+      e. Produce a structured analysis containing:
            - PASS / FAIL / MANUAL REVIEW recommendation
            - A table of each rule, the applicant's value, the threshold, and
              whether it passed.
@@ -50,6 +55,8 @@ SYSTEM_PROMPT = textwrap.dedent("""\
 
     If the user's text does not specify a loan product, infer the most likely
     one from context, or ask the user to clarify.
+    If neither a credit-check result nor enough information to call
+    `get_credit_check` is present, ask the user for the missing information.
 """)
 
 DEFAULT_MCP_URL = "http://localhost:8000/mcp"
@@ -94,9 +101,8 @@ else:
 agent = Agent(
     name="Credit Check Analysis Agent",
     description=(
-        "Analyses user profiles and credit-check results against "
-        "bank credit-policy rules. Returns a PASS / FAIL / MANUAL "
-        "REVIEW recommendation with a detailed rule-by-rule breakdown."
+        "Analyses loan applications by generating or using a credit-check result, "
+        "then comparing it against bank credit-policy rules."
     ),
     model=model,
     tools=tools,
@@ -114,8 +120,8 @@ a2a_server = A2AServer(
             id="credit_analysis",
             name="Credit Analysis",
             description=(
-                "Given a user profile and credit-check result, fetches "
-                "the applicable bank credit-policy rules and produces a "
+                "Given a loan application, generates or uses a credit-check result, "
+                "fetches the applicable bank credit-policy rules, and returns a "
                 "structured PASS/FAIL/MANUAL REVIEW recommendation."
             ),
             tags=["credit", "analysis", "banking", "loan"],

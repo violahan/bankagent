@@ -1,14 +1,13 @@
-"""Orchestration agent that coordinates multiple A2A agents.
+"""Orchestration agent that coordinates the loan analysis workflow.
 
 Connects to:
   - Credit Check Analysis Agent  (AnalyseAgent A2A server, localhost:8001)
-  - Credit Check Agent           (remote A2A server at localhost:8082)
 
 Typical workflow:
-  1. Credit Check Agent looks up the applicant by name + address and returns
-     a credit report (score, rating, detailed findings).
-  2. Credit Check Analysis Agent evaluates that report against bank policy
-     and produces a PASS / FAIL / MANUAL REVIEW recommendation.
+  1. The orchestrator sends the loan application to the AnalyseAgent.
+  2. The AnalyseAgent uses MCP tools to generate a credit report and fetch
+     the applicable policy rules.
+  3. The AnalyseAgent returns a PASS / FAIL / MANUAL REVIEW recommendation.
 
 Usage:
     1. Start the CreditServicesMCP server:
@@ -28,13 +27,12 @@ import sys
 import textwrap
 from typing import Any
 
-from strands import Agent, tool
+from strands import Agent
 from strands.models.anthropic import AnthropicModel
 from strands.models.ollama import OllamaModel
 from strands_tools.a2a_client import A2AClientToolProvider
 
 ANALYSE_AGENT_URL = os.getenv("ANALYSE_AGENT_URL", "http://localhost:8001")
-CREDIT_CHECK_AGENT_URL = os.getenv("CREDIT_CHECK_AGENT_URL", "http://localhost:8082")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "anthropic").strip().lower()
 MODEL_ID = os.getenv("MODEL_ID", "claude-sonnet-4-20250514")
@@ -46,33 +44,19 @@ SYSTEM_PROMPT = textwrap.dedent("""\
 
     ## important: You MUST return response in English-only.
 
-    You have access to two specialist agents that you can call as tools:
+    You have access to one specialist agent that you can call as a tool:
 
-      1. **Credit Check Agent** (http://localhost:8082) — performs a credit
-         lookup for an applicant.  When you contact it, send exactly one
-         sentence in this format and nothing else:
-         "I want the credit check result from <name> whose address is <address>"
-         It returns a credit report containing:
-           - score (0-850)
-           - rating (e.g. DECLINED, APPROVED)
-           - summary (plain-English explanation)
-           - details (list of findings, each with a category of INFO / OK /
-             WARNING / CRITICAL and a message)
-
-      2. **Credit Check Analysis Agent** (http://localhost:8001) — takes a user
-         profile together with a credit-check result and evaluates them
-         against the bank's internal credit-policy rules.  Returns a
-         PASS / FAIL / MANUAL REVIEW recommendation with a rule-by-rule
+      1. **Credit Check Analysis Agent** (http://localhost:8001) — takes a loan
+         application, generates a credit-check result when name and address are
+         available, retrieves the bank's internal credit-policy rules, and
+         returns a PASS / FAIL / MANUAL REVIEW recommendation with a rule-by-rule
          breakdown.
 
     Typical end-to-end workflow for a loan application:
-      a. Call the **Credit Check Agent** using exactly this sentence shape:
-         "I want the credit check result from <name> whose address is <address>"
-         Replace `<name>` and `<address>` with the applicant's actual values
-         and do not add any extra text.
-      b. Forward the user profile AND the credit report to the
-         **Credit Check Analysis Agent** for policy evaluation.
-      c. Synthesise both outputs into a single, clear response for the
+      a. Forward the user profile to the **Credit Check Analysis Agent**.
+      b. If name and address are present, allow the analysis agent to generate
+         the credit-check result via MCP.
+      c. Synthesise the analysis output into a single, clear response for the
          user.
 
     For end-to-end loan application outputs, your final report must contain
@@ -80,7 +64,7 @@ SYSTEM_PROMPT = textwrap.dedent("""\
       1. **User Profile**
          - Restate the applicant details used for the decision.
       2. **Credit Check Result**
-         - Include the credit-check fields returned by the Credit Check Agent.
+         - Include the credit-check fields used in the analysis.
       3. **Rules**
          - Include the applicable credit-policy rules and the rule-by-rule
            outcome from the analysis.
@@ -124,14 +108,13 @@ def extract_result_text(result: Any) -> str:
 def build_orchestrator(
    *,
    analyse_url: str = ANALYSE_AGENT_URL,
-   credit_check_url: str = CREDIT_CHECK_AGENT_URL,
    ollama_host: str = OLLAMA_HOST,
    model_provider: str = MODEL_PROVIDER,
    model_id: str = MODEL_ID,
 ) -> Agent:
    """Create the orchestrator agent wired to the downstream A2A agents."""
    provider = A2AClientToolProvider(
-       known_agent_urls=[credit_check_url, analyse_url],
+       known_agent_urls=[analyse_url],
    )
 
    if model_provider == "anthropic":
@@ -166,7 +149,6 @@ def build_orchestrator(
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
    parser = argparse.ArgumentParser(description="Bank operations orchestrator")
    parser.add_argument("--analyse-url", default=ANALYSE_AGENT_URL, help="AnalyseAgent A2A URL")
-   parser.add_argument("--bureau-url", default=CREDIT_CHECK_AGENT_URL, help="Credit check agent A2A URL")
    parser.add_argument("--provider", default=MODEL_PROVIDER, help="Model provider: anthropic or ollama")
    parser.add_argument("--ollama-host", default=OLLAMA_HOST, help="Ollama server address")
    parser.add_argument("--model", default=MODEL_ID, help="Model id")
@@ -182,7 +164,6 @@ if __name__ == "__main__":
 
    orchestrator = build_orchestrator(
        analyse_url=args.analyse_url,
-       credit_check_url=args.bureau_url,
        ollama_host=args.ollama_host,
        model_provider=args.provider,
        model_id=args.model,

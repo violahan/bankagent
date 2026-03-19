@@ -2,10 +2,11 @@ import json
 
 import pytest
 
-from mcp_server import mcp, RULE_SETS
+from mcp_server import RULE_SETS, mcp
 
 ALL_POLICY_TYPES = sorted(RULE_SETS)
-SAMPLE_REQUEST = "I want the credit check result from Jane Doe whose address is 123 Maple Street, Springfield, IL 62704."
+SAMPLE_NAME = "Jane Doe"
+SAMPLE_ADDRESS = "123 Maple Street, Springfield, IL 62704"
 
 
 # -- Tools -------------------------------------------------------------------
@@ -46,7 +47,10 @@ async def test_call_tool_invalid_policy_type():
 
 @pytest.mark.asyncio
 async def test_call_credit_check_tool_returns_expected_shape():
-    result = await mcp.call_tool("get_credit_check", {"request_text": SAMPLE_REQUEST})
+    result = await mcp.call_tool(
+        "get_credit_check",
+        {"name": SAMPLE_NAME, "address": SAMPLE_ADDRESS},
+    )
 
     if isinstance(result, tuple):
         content_blocks, raw = result
@@ -59,16 +63,27 @@ async def test_call_credit_check_tool_returns_expected_shape():
     report = payload["report"]
 
     assert payload["source"] == "demo_credit_check"
-    assert payload["request_text"] == SAMPLE_REQUEST.strip()
-    assert report["name"] == "Jane Doe"
-    assert report["address"] == "123 Maple Street, Springfield, IL 62704"
+    assert payload["name"] == SAMPLE_NAME
+    assert payload["address"] == SAMPLE_ADDRESS
+    assert report["name"] == SAMPLE_NAME
+    assert report["address"] == SAMPLE_ADDRESS
+    assert 300 <= report["bureau_score"] <= 850
+    assert 0.18 <= report["debt_to_income_ratio"] <= 0.55
+    assert 0.0 <= report["credit_utilisation"] <= 0.8
+    assert 0 <= report["delinquency_count"] <= 3
+    assert report["bankruptcies"] in (0, 1)
+    assert 0 <= report["hard_inquiries_last_6_months"] <= 6
+    assert report["external_rating"] in ("A", "B", "C", "D")
     assert "Bureau score:" in payload["formatted_report"]
 
 
 @pytest.mark.asyncio
 async def test_call_credit_check_tool_rejects_invalid_request():
     with pytest.raises((ValueError, Exception)):
-        await mcp.call_tool("get_credit_check", {"request_text": "check Jane Doe"})
+        await mcp.call_tool(
+            "get_credit_check",
+            {"name": "JD", "address": "Main Street"},
+        )
 
 
 # -- Resources ---------------------------------------------------------------
@@ -92,7 +107,8 @@ async def test_read_resource_policy_overview():
     assert payload["supported_policy_types"] == ALL_POLICY_TYPES
     assert "policy_type" in payload["rule_input_contract"]
     assert "rules" in payload["rule_output_contract"]
-    assert "request_text" in payload["credit_check_input_contract"]
+    assert "name" in payload["credit_check_input_contract"]
+    assert "address" in payload["credit_check_input_contract"]
     assert "formatted_report" in payload["credit_check_output_contract"]
 
 
@@ -107,3 +123,5 @@ async def test_get_prompt_credit_rules():
     assert "get_credit_check" in text
     for pt in ALL_POLICY_TYPES:
         assert pt in text
+    assert "name" in text
+    assert "address" in text

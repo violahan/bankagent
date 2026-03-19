@@ -72,7 +72,6 @@ services:
         condition: service_completed_successfully
     environment:
       ANALYSE_AGENT_URL: http://analyse-agent:8001
-      CREDIT_CHECK_AGENT_URL: http://15.135.186.83:8080
       OLLAMA_HOST: http://ollama:11434
       MODEL_ID: qwen2.5
     stdin_open: true

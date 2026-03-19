@@ -1,3 +1,5 @@
+import random
+import re
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -54,41 +56,58 @@ RULE_SETS: dict[str, dict] = {
     },
 }
 
-CREDIT_CHECK_LOOKUPS: dict[str, dict[str, int | float | str]] = {
-    "jane_doe": {
-        "name": "Jane Doe",
-        "address": "123 Maple Street, Springfield, IL 62704",
-        "bureau_score": 742,
-        "debt_to_income_ratio": 0.31,
-        "credit_utilisation": 0.28,
-        "delinquency_count": 0,
-        "bankruptcies": 0,
-        "hard_inquiries_last_6_months": 1,
-        "external_rating": "A",
-    },
-    "john_smith": {
-        "name": "John Smith",
-        "address": "456 Oak Avenue, Denver, CO 80203",
-        "bureau_score": 668,
-        "debt_to_income_ratio": 0.42,
-        "credit_utilisation": 0.58,
-        "delinquency_count": 1,
-        "bankruptcies": 0,
-        "hard_inquiries_last_6_months": 3,
-        "external_rating": "C",
-    },
-    "maria_garcia": {
-        "name": "Maria Garcia",
-        "address": "789 Pine Road, Austin, TX 78701",
-        "bureau_score": 721,
-        "debt_to_income_ratio": 0.35,
-        "credit_utilisation": 0.41,
-        "delinquency_count": 0,
-        "bankruptcies": 0,
-        "hard_inquiries_last_6_months": 2,
-        "external_rating": "B",
-    },
-}
+
+def _validate_inputs(name: str, address: str) -> tuple[str, str]:
+    cleaned_name = name.strip()
+    cleaned_address = address.strip()
+    errors: list[str] = []
+
+    if len(cleaned_name) < 3:
+        errors.append("name must be at least 3 characters")
+    if len(cleaned_address) < 10:
+        errors.append("address must be at least 10 characters")
+    if cleaned_address and not re.search(r"\d", cleaned_address):
+        errors.append("address must contain a street number")
+
+    if errors:
+        raise ValueError("; ".join(errors))
+
+    return cleaned_name, cleaned_address
+
+
+def _external_rating(score: int) -> str:
+    if score >= 740:
+        return "A"
+    if score >= 680:
+        return "B"
+    if score >= 620:
+        return "C"
+    return "D"
+
+
+def _lookup_credit_check(name: str, address: str) -> dict[str, int | float | str]:
+    cleaned_name, cleaned_address = _validate_inputs(name, address)
+
+    rng = random.SystemRandom()
+    bureau_score = rng.randint(300, 850)
+    debt_to_income_ratio = round(rng.uniform(0.18, 0.55), 2)
+    credit_utilisation = round(rng.uniform(0.00, 0.80), 2)
+    delinquency_count = rng.randint(0, 3)
+    bankruptcies = rng.choices([0, 1], weights=[9, 1], k=1)[0]
+    hard_inquiries_last_6_months = rng.randint(0, 6)
+    external_rating = _external_rating(bureau_score)
+
+    return {
+        "name": cleaned_name,
+        "address": cleaned_address,
+        "bureau_score": bureau_score,
+        "debt_to_income_ratio": debt_to_income_ratio,
+        "credit_utilisation": credit_utilisation,
+        "delinquency_count": delinquency_count,
+        "bankruptcies": bankruptcies,
+        "hard_inquiries_last_6_months": hard_inquiries_last_6_months,
+        "external_rating": external_rating,
+    }
 
 
 def _format_credit_check_report(report: dict[str, int | float | str]) -> str:
@@ -106,13 +125,12 @@ def _format_credit_check_report(report: dict[str, int | float | str]) -> str:
         ]
     )
 
-
 mcp = FastMCP(
     host="0.0.0.0",
     stateless_http=True,
     name="credit-services",
     instructions=(
-        "Use this server to fetch hardcoded bank credit policies and applicant "
+        "Use this server to fetch hardcoded bank credit policies and generated "
         "credit checks."
     ),
 )
@@ -139,22 +157,19 @@ def get_credit_check_rules(policy_type: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_credit_check(applicant_id: str) -> dict[str, Any]:
-    """Return a hardcoded credit check for the requested applicant.
+def get_credit_check(name: str, address: str) -> dict[str, Any]:
+    """Return a generated credit check for the supplied applicant.
 
     Args:
-        applicant_id: One of `jane_doe`, `john_smith`, or `maria_garcia`.
+        name: Applicant name.
+        address: Applicant address.
     """
-    if applicant_id not in CREDIT_CHECK_LOOKUPS:
-        supported = ", ".join(sorted(CREDIT_CHECK_LOOKUPS))
-        raise ValueError(
-            f"Unsupported applicant_id '{applicant_id}'. Supported values: {supported}."
-        )
-
-    report = CREDIT_CHECK_LOOKUPS[applicant_id]
+    cleaned_name, cleaned_address = _validate_inputs(name, address)
+    report = _lookup_credit_check(name=cleaned_name, address=cleaned_address)
     return {
         "source": "demo_credit_check",
-        "applicant_id": applicant_id,
+        "name": cleaned_name,
+        "address": cleaned_address,
         "report": report,
         "formatted_report": _format_credit_check_report(report),
     }
@@ -171,11 +186,11 @@ def policy_overview() -> dict[str, Any]:
         "rule_input_contract": ["policy_type"],
         "supported_policy_types": sorted(RULE_SETS),
         "rule_output_contract": ["source", "policy_type", "rules"],
-        "credit_check_input_contract": ["applicant_id"],
-        "supported_applicant_ids": sorted(CREDIT_CHECK_LOOKUPS),
+        "credit_check_input_contract": ["name", "address"],
         "credit_check_output_contract": [
             "source",
-            "applicant_id",
+            "name",
+            "address",
             "report",
             "formatted_report",
         ],
@@ -186,10 +201,9 @@ def policy_overview() -> dict[str, Any]:
 def credit_rules_prompt() -> str:
     """Provide a ready-to-use prompt for the available MCP tools."""
     types = ", ".join(f"`{t}`" for t in sorted(RULE_SETS))
-    applicants = ", ".join(f"`{a}`" for a in sorted(CREDIT_CHECK_LOOKUPS))
     return (
         f"Call `get_credit_check_rules` with one of these policy types: {types}. "
-        f"Call `get_credit_check` with one of these applicant ids: {applicants}."
+        "Call `get_credit_check` with `name` and `address`."
     )
 
 

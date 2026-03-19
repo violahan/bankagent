@@ -17,9 +17,8 @@ import time
 
 from orchestrator import (
     ANALYSE_AGENT_URL,
-    MODEL_PROVIDER,
-    CREDIT_CHECK_AGENT_URL,
     MODEL_ID,
+    MODEL_PROVIDER,
     OLLAMA_HOST,
     build_orchestrator,
     extract_result_text,
@@ -27,7 +26,7 @@ from orchestrator import (
 
 TEST_QUESTIONS = [
     {
-        "label": "Full loan application (credit lookup + policy analysis)",
+        "label": "Full loan application (credit generation + policy analysis)",
         "prompt": textwrap.dedent("""\
             I'd like to apply for a personal loan for debt consolidation.
             Here is my information:
@@ -99,7 +98,6 @@ TEST_QUESTIONS = [
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Test script for the Bank Orchestrator")
     parser.add_argument("--analyse-url", default=ANALYSE_AGENT_URL, help="AnalyseAgent A2A URL")
-    parser.add_argument("--bureau-url", default=CREDIT_CHECK_AGENT_URL, help="Credit check agent A2A URL")
     parser.add_argument("--provider", default=MODEL_PROVIDER, help="Model provider: anthropic or ollama")
     parser.add_argument("--ollama-host", default=OLLAMA_HOST, help="Ollama server address")
     parser.add_argument("--model", default=MODEL_ID, help="Model id")
@@ -149,7 +147,6 @@ if __name__ == "__main__":
     print("Building orchestrator …")
     orchestrator = build_orchestrator(
         analyse_url=args.analyse_url,
-        credit_check_url=args.bureau_url,
         ollama_host=args.ollama_host,
         model_provider=args.provider,
         model_id=args.model,
