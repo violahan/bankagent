@@ -28,18 +28,16 @@ import sys
 import textwrap
 from typing import Any
 
+import boto3
 from strands import Agent, tool
-from strands.models.anthropic import AnthropicModel
-from strands.models.ollama import OllamaModel
+from strands.models import BedrockModel
 from strands_tools.a2a_client import A2AClientToolProvider
 
 ANALYSE_AGENT_URL = os.getenv("ANALYSE_AGENT_URL", "http://localhost:8001")
 CREDIT_CHECK_AGENT_URL = os.getenv("CREDIT_CHECK_AGENT_URL", "http://localhost:8082")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "anthropic").strip().lower()
-MODEL_ID = os.getenv("MODEL_ID", "claude-sonnet-4-20250514")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-ANTHROPIC_MAX_TOKENS = int(os.getenv("ANTHROPIC_MAX_TOKENS", "4096"))
+AWS_REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", "ap-southeast-2"))
+MODEL_ID = os.getenv("MODEL_ID", "apac.anthropic.claude-sonnet-4-20250514-v1:0")
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "4096"))
 
 SYSTEM_PROMPT = textwrap.dedent("""\
     You are a bank operations orchestrator.
@@ -125,8 +123,7 @@ def build_orchestrator(
    *,
    analyse_url: str = ANALYSE_AGENT_URL,
    credit_check_url: str = CREDIT_CHECK_AGENT_URL,
-   ollama_host: str = OLLAMA_HOST,
-   model_provider: str = MODEL_PROVIDER,
+   aws_region: str = AWS_REGION,
    model_id: str = MODEL_ID,
 ) -> Agent:
    """Create the orchestrator agent wired to the downstream A2A agents."""
@@ -134,22 +131,12 @@ def build_orchestrator(
        known_agent_urls=[credit_check_url, analyse_url],
    )
 
-   if model_provider == "anthropic":
-       if not ANTHROPIC_API_KEY:
-           raise ValueError(
-               "ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic."
-           )
-       model = AnthropicModel(
-           client_args={"api_key": ANTHROPIC_API_KEY},
-           model_id=model_id,
-           max_tokens=ANTHROPIC_MAX_TOKENS,
-       )
-   elif model_provider == "ollama":
-       model = OllamaModel(host=ollama_host, model_id=model_id)
-   else:
-       raise ValueError(
-           f"Unsupported MODEL_PROVIDER={model_provider!r}. Use 'anthropic' or 'ollama'."
-       )
+   session = boto3.Session(region_name=aws_region)
+   model = BedrockModel(
+       model_id=model_id,
+       max_tokens=MAX_TOKENS,
+       boto_session=session,
+   )
 
 
    return Agent(
@@ -167,8 +154,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
    parser = argparse.ArgumentParser(description="Bank operations orchestrator")
    parser.add_argument("--analyse-url", default=ANALYSE_AGENT_URL, help="AnalyseAgent A2A URL")
    parser.add_argument("--bureau-url", default=CREDIT_CHECK_AGENT_URL, help="Credit check agent A2A URL")
-   parser.add_argument("--provider", default=MODEL_PROVIDER, help="Model provider: anthropic or ollama")
-   parser.add_argument("--ollama-host", default=OLLAMA_HOST, help="Ollama server address")
+   parser.add_argument("--aws-region", default=AWS_REGION, help="AWS region for Bedrock")
    parser.add_argument("--model", default=MODEL_ID, help="Model id")
    parser.add_argument("prompt", nargs="?", default=None, help="Prompt to send (interactive if omitted)")
    return parser.parse_args(argv)
@@ -183,8 +169,7 @@ if __name__ == "__main__":
    orchestrator = build_orchestrator(
        analyse_url=args.analyse_url,
        credit_check_url=args.bureau_url,
-       ollama_host=args.ollama_host,
-       model_provider=args.provider,
+       aws_region=args.aws_region,
        model_id=args.model,
    )
 

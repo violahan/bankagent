@@ -17,10 +17,9 @@ import time
 
 from orchestrator import (
     ANALYSE_AGENT_URL,
-    MODEL_PROVIDER,
     CREDIT_CHECK_AGENT_URL,
     MODEL_ID,
-    OLLAMA_HOST,
+    AWS_REGION,
     build_orchestrator,
     extract_result_text,
 )
@@ -100,8 +99,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Test script for the Bank Orchestrator")
     parser.add_argument("--analyse-url", default=ANALYSE_AGENT_URL, help="AnalyseAgent A2A URL")
     parser.add_argument("--bureau-url", default=CREDIT_CHECK_AGENT_URL, help="Credit check agent A2A URL")
-    parser.add_argument("--provider", default=MODEL_PROVIDER, help="Model provider: anthropic or ollama")
-    parser.add_argument("--ollama-host", default=OLLAMA_HOST, help="Ollama server address")
+    parser.add_argument("--aws-region", default=AWS_REGION, help="AWS region for Bedrock")
     parser.add_argument("--model", default=MODEL_ID, help="Model id")
     parser.add_argument(
         "-n", "--number",
@@ -150,8 +148,7 @@ if __name__ == "__main__":
     orchestrator = build_orchestrator(
         analyse_url=args.analyse_url,
         credit_check_url=args.bureau_url,
-        ollama_host=args.ollama_host,
-        model_provider=args.provider,
+        aws_region=args.aws_region,
         model_id=args.model,
     )
     print("Orchestrator ready.\n")

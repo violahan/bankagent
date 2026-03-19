@@ -4,8 +4,7 @@ Exposes the CreditCheckAgent as an A2A-compliant service using
 strands.multiagent.a2a.A2AServer and FastAPI.
 
 Usage:
-    1. Make sure Ollama is running:
-           ollama pull qwen2.5
+    1. Ensure AWS credentials and region for Bedrock are available.
     2. Start this A2A server:
            cd CreditCheckAgent && uvicorn a2a_server:app --host 0.0.0.0 --port 8082
 """
@@ -16,10 +15,10 @@ import logging
 import os
 import textwrap
 
+import boto3
 from a2a.types import AgentSkill
 from strands import Agent, tool
-from strands.models.anthropic import AnthropicModel
-from strands.models.ollama import OllamaModel
+from strands.models import BedrockModel
 from strands.multiagent.a2a import A2AServer
 
 from credit_lookup import format_credit_check_report, lookup_credit_check, parse_credit_check_request
@@ -41,18 +40,15 @@ SYSTEM_PROMPT = textwrap.dedent("""\
     by the tool so downstream agents can use them directly.
 """)
 
-DEFAULT_OLLAMA_HOST = "http://localhost:11434"
-DEFAULT_MODEL_PROVIDER = "anthropic"
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
-DEFAULT_ANTHROPIC_MAX_TOKENS = 4096
+DEFAULT_AWS_REGION = "ap-southeast-2"
+DEFAULT_MODEL = "apac.anthropic.claude-sonnet-4-20250514-v1:0"
+DEFAULT_MAX_TOKENS = 4096
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", DEFAULT_OLLAMA_HOST)
-MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", DEFAULT_MODEL_PROVIDER).strip().lower()
+AWS_REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS_REGION))
 MODEL_ID = os.getenv("MODEL_ID", DEFAULT_MODEL)
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-ANTHROPIC_MAX_TOKENS = int(os.getenv("ANTHROPIC_MAX_TOKENS", str(DEFAULT_ANTHROPIC_MAX_TOKENS)))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8082"))
 
@@ -66,20 +62,12 @@ def get_credit_check(request_text: str) -> str:
     return format_credit_check_report(report)
 
 
-if MODEL_PROVIDER == "anthropic":
-    if not ANTHROPIC_API_KEY:
-        raise ValueError("ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic.")
-    model = AnthropicModel(
-        client_args={"api_key": ANTHROPIC_API_KEY},
-        model_id=MODEL_ID,
-        max_tokens=ANTHROPIC_MAX_TOKENS,
-    )
-elif MODEL_PROVIDER == "ollama":
-    model = OllamaModel(host=OLLAMA_HOST, model_id=MODEL_ID)
-else:
-    raise ValueError(
-        f"Unsupported MODEL_PROVIDER={MODEL_PROVIDER!r}. Use 'anthropic' or 'ollama'."
-    )
+session = boto3.Session(region_name=AWS_REGION)
+model = BedrockModel(
+    model_id=MODEL_ID,
+    max_tokens=MAX_TOKENS,
+    boto_session=session,
+)
 
 agent = Agent(
     name="Credit Check Agent",

@@ -3,8 +3,7 @@
 Looks up a mock credit report from a narrow request sentence.
 
 Usage:
-    1. Make sure Ollama is running with a tool-capable model pulled:
-           ollama pull qwen2.5
+    1. Ensure AWS credentials and region for Bedrock are available.
     2. Run this agent:
            cd CreditCheckAgent && python test_script.py
 """
@@ -15,9 +14,9 @@ import argparse
 import os
 import textwrap
 
+import boto3
 from strands import Agent, tool
-from strands.models.anthropic import AnthropicModel
-from strands.models.ollama import OllamaModel
+from strands.models import BedrockModel
 
 from credit_lookup import format_credit_check_report, lookup_credit_check, parse_credit_check_request
 
@@ -38,10 +37,9 @@ SYSTEM_PROMPT = textwrap.dedent("""\
     by the tool so downstream agents can use them directly.
 """)
 
-DEFAULT_OLLAMA_HOST = "http://localhost:11434"
-DEFAULT_MODEL_PROVIDER = "anthropic"
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
-DEFAULT_ANTHROPIC_MAX_TOKENS = 4096
+DEFAULT_AWS_REGION = "ap-southeast-2"
+DEFAULT_MODEL = "apac.anthropic.claude-sonnet-4-20250514-v1:0"
+DEFAULT_MAX_TOKENS = 4096
 
 
 @tool
@@ -56,27 +54,17 @@ def get_credit_check(request_text: str) -> str:
 def run_credit_check(
     request_text: str,
     *,
-    model_provider: str = os.getenv("MODEL_PROVIDER", DEFAULT_MODEL_PROVIDER).strip().lower(),
-    ollama_host: str = DEFAULT_OLLAMA_HOST,
+    aws_region: str = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS_REGION)),
     model_id: str = DEFAULT_MODEL,
 ) -> str:
     """Run a single credit check and return the agent response text."""
 
-    if model_provider == "anthropic":
-        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not anthropic_api_key:
-            raise ValueError("ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic.")
-        model = AnthropicModel(
-            client_args={"api_key": anthropic_api_key},
-            model_id=model_id,
-            max_tokens=int(os.getenv("ANTHROPIC_MAX_TOKENS", str(DEFAULT_ANTHROPIC_MAX_TOKENS))),
-        )
-    elif model_provider == "ollama":
-        model = OllamaModel(host=ollama_host, model_id=model_id)
-    else:
-        raise ValueError(
-            f"Unsupported MODEL_PROVIDER={model_provider!r}. Use 'anthropic' or 'ollama'."
-        )
+    session = boto3.Session(region_name=aws_region)
+    model = BedrockModel(
+        model_id=model_id,
+        max_tokens=int(os.getenv("MAX_TOKENS", str(DEFAULT_MAX_TOKENS))),
+        boto_session=session,
+    )
 
     agent = Agent(
         model=model,
@@ -90,8 +78,7 @@ def run_credit_check(
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Credit-check agent")
-    parser.add_argument("--provider", default=os.getenv("MODEL_PROVIDER", DEFAULT_MODEL_PROVIDER), help="Model provider: anthropic or ollama")
-    parser.add_argument("--ollama-host", default=DEFAULT_OLLAMA_HOST, help="Ollama server address")
+    parser.add_argument("--aws-region", default=os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS_REGION)), help="AWS region for Bedrock")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Model id")
     return parser.parse_args(argv)
 
@@ -117,8 +104,7 @@ if __name__ == "__main__":
 
     response = run_credit_check(
         request_text,
-        model_provider=args.provider,
-        ollama_host=args.ollama_host,
+        aws_region=args.aws_region,
         model_id=args.model,
     )
 
