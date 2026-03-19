@@ -2,6 +2,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+
 RULE_SETS: dict[str, dict] = {
     "personal_loan": {
         "policy_name": "Personal Loan Policy",
@@ -53,52 +54,79 @@ RULE_SETS: dict[str, dict] = {
     },
 }
 
+def _invalid_tool_response(tool_name: str, message: str, requirements: list[str]) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "tool": tool_name,
+        "message": message,
+        "requirements": requirements,
+    }
 
 mcp = FastMCP(
     host="0.0.0.0",
     stateless_http=True,
-    name="credit-check-rules",
-    instructions="Use this server to fetch hardcoded bank credit-check rules.",
+    name="bank-rules-mcp-server",
+    instructions=(
+        "Use this server to fetch the bank rules used to review a loan application."
+    ),
 )
 
 
 @mcp.tool()
-def get_credit_check_rules(policy_type: str) -> dict[str, Any]:
-    """Return a hardcoded bank credit policy for the requested product type.
+def get_loan_application_review_rules(policy_type: str) -> dict[str, Any]:
+    """Get the bank rules used to review a loan application for a specific product.
+
+    Use this tool when you already know which product the applicant is applying
+    for and you need the rule thresholds for decisioning. Pass `policy_type` as
+    one of `personal_loan`, `vehicle_loan`, or `mortgage_refinance`.
+
+    On success, this tool returns `ok: true` and a `rules` object containing the
+    review criteria for that product. If the input is invalid, it returns
+    `ok: false` with a `message` and `requirements` describing what the caller
+    must provide.
 
     Args:
         policy_type: One of `personal_loan`, `vehicle_loan`, or `mortgage_refinance`.
     """
     if policy_type not in RULE_SETS:
         supported = ", ".join(sorted(RULE_SETS))
-        raise ValueError(
-            f"Unsupported policy_type '{policy_type}'. Supported values: {supported}."
+        return _invalid_tool_response(
+            tool_name="get_loan_application_review_rules",
+            message=(
+                f"Unsupported policy_type '{policy_type}'. "
+                f"Supported values: {supported}."
+            ),
+            requirements=[
+                "Provide `policy_type`.",
+                f"Use one of: {supported}.",
+            ],
         )
 
     return {
-        "source": "demo_rules",
+        "ok": True,
+        "source": "rules",
         "policy_type": policy_type,
         "rules": RULE_SETS[policy_type],
     }
 
-
-@mcp.resource("credit-check://policy-overview")
+@mcp.resource("bank-rules-mcp-server://overview")
 def policy_overview() -> dict[str, Any]:
-    """Describe the available policy types and response shape."""
+    """Describe the available tools and response shapes."""
     return {
-        "server": "credit-check-rules",
-        "policy_source": "demo_rules",
-        "input_contract": ["policy_type"],
+        "server": "bank-rules-mcp-server",
+        "policy_source": "rules",
+        "tools": ["get_loan_application_review_rules"],
+        "rule_input_contract": ["policy_type"],
         "supported_policy_types": sorted(RULE_SETS),
-        "output_contract": ["source", "policy_type", "rules"],
+        "rule_output_contract": ["ok", "source", "policy_type", "rules"],
     }
 
 
 @mcp.prompt()
 def credit_rules_prompt() -> str:
-    """Provide a ready-to-use prompt for fetching a rule set."""
+    """Provide a ready-to-use prompt for the available MCP tools."""
     types = ", ".join(f"`{t}`" for t in sorted(RULE_SETS))
-    return f"Call `get_credit_check_rules` with one of these policy types: {types}."
+    return f"Call `get_loan_application_review_rules` with one of these policy types: {types}."
 
 
 if __name__ == "__main__":
