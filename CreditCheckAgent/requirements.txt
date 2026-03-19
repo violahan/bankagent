@@ -1,5 +1,6 @@
 strands-agents
-strands-agents-tools
 a2a-sdk
+uvicorn
+fastapi
 anthropic
 ollama

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from server import mcp, RULE_SETS
+from mcp_server import mcp, RULE_SETS
 
 ALL_POLICY_TYPES = sorted(RULE_SETS)
 

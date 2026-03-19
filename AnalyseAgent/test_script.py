@@ -5,7 +5,7 @@ analyses a user profile + credit-check result against those rules.
 
 Usage:
     1. Start the RuleFetchMCP server:
-           cd RuleFetchMCP && python server.py
+           cd RuleFetchMCP && python mcp_server.py
     2. Make sure Ollama is running with a tool-capable model pulled:
            ollama pull qwen2.5
     3. Run this agent:
@@ -13,10 +13,12 @@ Usage:
 """
 
 import argparse
+import os
 import textwrap
 
 from mcp.client.streamable_http import streamablehttp_client
 from strands import Agent
+from strands.models.anthropic import AnthropicModel
 from strands.models.ollama import OllamaModel
 from strands.tools.mcp import MCPClient
 
@@ -47,7 +49,9 @@ SYSTEM_PROMPT = textwrap.dedent("""\
 
 DEFAULT_MCP_URL = "http://localhost:8000/mcp"
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
-DEFAULT_MODEL = "qwen2.5"
+DEFAULT_MODEL_PROVIDER = "anthropic"
+DEFAULT_MODEL = "claude-sonnet-4-20250514"
+DEFAULT_ANTHROPIC_MAX_TOKENS = 4096
 
 
 def analyse(
@@ -55,6 +59,7 @@ def analyse(
     credit_result: str,
     *,
     mcp_url: str = DEFAULT_MCP_URL,
+    model_provider: str = os.getenv("MODEL_PROVIDER", DEFAULT_MODEL_PROVIDER).strip().lower(),
     ollama_host: str = DEFAULT_OLLAMA_HOST,
     model_id: str = DEFAULT_MODEL,
 ) -> str:
@@ -68,17 +73,32 @@ def analyse(
 
     mcp_client = MCPClient(lambda: streamablehttp_client(mcp_url))
 
-    ollama_model = OllamaModel(
-        host=ollama_host,
-        model_id=model_id,
-    )
+    if model_provider == "anthropic":
+        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not anthropic_api_key:
+            raise ValueError("ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic.")
+        model = AnthropicModel(
+            client_args={"api_key": anthropic_api_key},
+            model_id=model_id,
+            max_tokens=int(os.getenv("ANTHROPIC_MAX_TOKENS", str(DEFAULT_ANTHROPIC_MAX_TOKENS))),
+        )
+    elif model_provider == "ollama":
+        model = OllamaModel(
+            host=ollama_host,
+            model_id=model_id,
+        )
+    else:
+        raise ValueError(
+            f"Unsupported MODEL_PROVIDER={model_provider!r}. Use 'anthropic' or 'ollama'."
+        )
 
     with mcp_client:
         tools = mcp_client.list_tools_sync()
         agent = Agent(
-            model=ollama_model,
+            model=model,
             tools=tools,
             system_prompt=SYSTEM_PROMPT,
+            # callback_handler=None,
         )
         result = agent(prompt)
 
@@ -88,8 +108,9 @@ def analyse(
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Credit-check analysis agent")
     parser.add_argument("--mcp-url", default=DEFAULT_MCP_URL, help="RuleFetchMCP streamable-HTTP URL")
+    parser.add_argument("--provider", default=os.getenv("MODEL_PROVIDER", DEFAULT_MODEL_PROVIDER), help="Model provider: anthropic or ollama")
     parser.add_argument("--ollama-host", default=DEFAULT_OLLAMA_HOST, help="Ollama server address")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Ollama model id (must support tool calling)")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="Model id")
     return parser.parse_args(argv)
 
 
@@ -138,6 +159,7 @@ if __name__ == "__main__":
         user_profile,
         credit_result,
         mcp_url=args.mcp_url,
+        model_provider=args.provider,
         ollama_host=args.ollama_host,
         model_id=args.model,
     )

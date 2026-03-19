@@ -15,7 +15,15 @@ import sys
 import textwrap
 import time
 
-from orchestrator import build_orchestrator, ANALYSE_AGENT_URL, BUREAU_AGENT_URL, OLLAMA_HOST, MODEL_ID
+from orchestrator import (
+    ANALYSE_AGENT_URL,
+    MODEL_PROVIDER,
+    CREDIT_CHECK_AGENT_URL,
+    MODEL_ID,
+    OLLAMA_HOST,
+    build_orchestrator,
+    extract_result_text,
+)
 
 TEST_QUESTIONS = [
     {
@@ -33,67 +41,68 @@ TEST_QUESTIONS = [
             the bank's policy.
         """),
     },
-    {
-        "label": "Credit report lookup only",
-        "prompt": textwrap.dedent("""\
-            Can you pull the credit report for the following person?
-              Full name: John Smith
-              Address: 456 Oak Avenue, Denver, CO 80203
-        """),
-    },
-    {
-        "label": "Policy analysis with provided credit data",
-        "prompt": textwrap.dedent("""\
-            I already have a credit report for a vehicle loan applicant.
-            Please evaluate it against the bank's vehicle loan policy.
-
-            User Profile:
-              Name: Alice Johnson
-              Age: 28
-              Employment status: full-time
-              Annual income: $62,000
-              Existing monthly debt payments: $800
-
-            Credit Report:
-              Bureau score: 745
-              Debt-to-income ratio: 0.28
-              Credit utilisation: 0.30
-              Number of delinquencies: 0
-              Bankruptcies: 0
-              Hard inquiries in last 6 months: 1
-              External rating: A
-        """),
-    },
-    {
-        "label": "Edge case – low credit score applicant",
-        "prompt": textwrap.dedent("""\
-            Evaluate the following mortgage refinance application end-to-end.
-
-            Applicant:
-              Name: Robert Brown
-              Address: 789 Pine Road, Austin, TX 73301
-              Age: 52
-              Employment status: self-employed
-              Annual income: $48,000
-              Existing monthly debt payments: $2,100
-
-            If you need to pull his credit report, please do so, then run
-            the full policy check.
-        """),
-    },
-    {
-        "label": "General banking question (no agent call expected)",
-        "prompt": "What types of loan products does this bank support?",
-    },
+    # {
+    #     "label": "Credit report lookup only",
+    #     "prompt": textwrap.dedent("""\
+    #         Can you pull the credit report for the following person?
+    #           Full name: John Smith
+    #           Address: 456 Oak Avenue, Denver, CO 80203
+    #     """),
+    # },
+    # {
+    #     "label": "Policy analysis with provided credit data",
+    #     "prompt": textwrap.dedent("""\
+    #         I already have a credit report for a vehicle loan applicant.
+    #         Please evaluate it against the bank's vehicle loan policy.
+    #
+    #         User Profile:
+    #           Name: Alice Johnson
+    #           Age: 28
+    #           Employment status: full-time
+    #           Annual income: $62,000
+    #           Existing monthly debt payments: $800
+    #
+    #         Credit Report:
+    #           Bureau score: 745
+    #           Debt-to-income ratio: 0.28
+    #           Credit utilisation: 0.30
+    #           Number of delinquencies: 0
+    #           Bankruptcies: 0
+    #           Hard inquiries in last 6 months: 1
+    #           External rating: A
+    #     """),
+    # },
+    # {
+    #     "label": "Edge case – low credit score applicant",
+    #     "prompt": textwrap.dedent("""\
+    #         Evaluate the following mortgage refinance application end-to-end.
+    #
+    #         Applicant:
+    #           Name: Robert Brown
+    #           Address: 789 Pine Road, Austin, TX 73301
+    #           Age: 52
+    #           Employment status: self-employed
+    #           Annual income: $48,000
+    #           Existing monthly debt payments: $2,100
+    #
+    #         If you need to pull his credit report, please do so, then run
+    #         the full policy check.
+    #     """),
+    # },
+    # {
+    #     "label": "General banking question (no agent call expected)",
+    #     "prompt": "What types of loan products does this bank support?",
+    # },
 ]
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Test script for the Bank Orchestrator")
     parser.add_argument("--analyse-url", default=ANALYSE_AGENT_URL, help="AnalyseAgent A2A URL")
-    parser.add_argument("--bureau-url", default=BUREAU_AGENT_URL, help="Credit Bureau agent A2A URL")
+    parser.add_argument("--bureau-url", default=CREDIT_CHECK_AGENT_URL, help="Credit check agent A2A URL")
+    parser.add_argument("--provider", default=MODEL_PROVIDER, help="Model provider: anthropic or ollama")
     parser.add_argument("--ollama-host", default=OLLAMA_HOST, help="Ollama server address")
-    parser.add_argument("--model", default=MODEL_ID, help="Ollama model id")
+    parser.add_argument("--model", default=MODEL_ID, help="Model id")
     parser.add_argument(
         "-n", "--number",
         type=int,
@@ -121,7 +130,7 @@ def run_tests(
         try:
             result = orchestrator(q["prompt"])
             elapsed = time.time() - start
-            answer = result.message["content"][0]["text"]
+            answer = extract_result_text(result)
             print(f"[RESPONSE] ({elapsed:.1f}s)\n{answer}")
         except Exception as exc:
             elapsed = time.time() - start
@@ -140,8 +149,9 @@ if __name__ == "__main__":
     print("Building orchestrator …")
     orchestrator = build_orchestrator(
         analyse_url=args.analyse_url,
-        bureau_url=args.bureau_url,
+        credit_check_url=args.bureau_url,
         ollama_host=args.ollama_host,
+        model_provider=args.provider,
         model_id=args.model,
     )
     print("Orchestrator ready.\n")
