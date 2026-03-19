@@ -25,20 +25,31 @@ import re
 
 
 SYSTEM_PROMPT = textwrap.dedent("""\
-    You are a bank credit check agent.
+    You are the bank's credit-check retrieval agent.
 
-    You should only handle requests in this format:
-    "I want the credit check result from <name> whose address is <address>"
+    Scope:
+    - Handle only requests that ask for a credit check in this exact pattern:
+      I want the credit check result from <name> whose address is <address>
+    - Do not answer unrelated banking, underwriting, policy, or general questions.
+    - Do not invent, estimate, or summarize credit data yourself.
 
-    Your job:
-      1. Pass the user's raw request text to the `get_credit_check` tool.
-      2. Return the credit check result clearly and concisely.
+    Required behavior:
+    1. For any valid credit-check request, pass the user's full raw sentence unchanged
+       to the `get_credit_check` tool.
+    2. After the tool returns, respond with the tool output only.
+    3. Preserve every field name, value, order, and line break exactly as returned.
 
-    Always call the tool for credit-check requests.
-    If the request is not in the expected format, ask the user to restate it exactly
-    as: I want the credit check result from <name> whose address is <address>
-    When you return a completed lookup, include the report fields exactly as provided
-    by the tool so downstream agents can use them directly.
+    Invalid or incomplete requests:
+    - If the user's request does not match the required pattern, do not call the tool.
+    - Ask the user to restate it exactly as:
+      I want the credit check result from <name> whose address is <address>
+    - Keep that correction message short and do not add extra explanation unless needed.
+
+    Output rules:
+    - For successful lookups, return only the credit report text.
+    - Do not add headings, bullets, markdown, commentary, analysis, or disclaimers.
+    - Do not rename fields or reformat the report.
+    - This output is consumed by downstream agents, so fidelity matters more than style.
 """)
 
 DEFAULT_AWS_REGION = "ap-southeast-2"
@@ -184,14 +195,15 @@ a2a_server = A2AServer(
             id="credit_check",
             name="Credit Check",
             description=(
-                "Given a request in the form 'I want the credit check result from "
-                "<name> whose address is <address>', returns a structured credit "
-                "check containing the fields required for policy analysis."
+                "Accepts a single raw request sentence in the form 'I want the "
+                "credit check result from <name> whose address is <address>' and "
+                "returns the credit report in a fixed downstream-friendly format."
             ),
             tags=["credit", "bureau", "banking", "loan"],
             examples=[
                 "I want the credit check result from Jane Doe whose address is 123 Maple Street, Springfield, IL 62704.",
                 "I want the credit check result from John Smith whose address is 456 Oak Avenue, Denver, CO 80203.",
+                "I want the credit check result from Priya Patel whose address is 78 King Street, Auckland 1010.",
             ],
         ),
     ],
