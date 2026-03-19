@@ -146,7 +146,7 @@ mcp = FastMCP(
 
 
 @mcp.tool()
-def get_loan_application_rules(policy_type: str) -> dict[str, Any]:
+def get_loan_application_review_rules(policy_type: str) -> dict[str, Any]:
     """Get the bank rules used to review a loan application for a specific product.
 
     Use this tool when you already know which product the applicant is applying
@@ -164,7 +164,7 @@ def get_loan_application_rules(policy_type: str) -> dict[str, Any]:
     if policy_type not in RULE_SETS:
         supported = ", ".join(sorted(RULE_SETS))
         return _invalid_tool_response(
-            tool_name="get_loan_application_rules",
+            tool_name="get_loan_application_review_rules",
             message=(
                 f"Unsupported policy_type '{policy_type}'. "
                 f"Supported values: {supported}."
@@ -184,7 +184,7 @@ def get_loan_application_rules(policy_type: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def get_credit_check(name: str, address: str) -> dict[str, Any]:
+def get_credit_check_result(name: str, address: str) -> dict[str, Any]:
     """Generate a credit-check result for an applicant using their name and address.
 
     Use this tool when the caller needs a credit profile for application review
@@ -206,7 +206,7 @@ def get_credit_check(name: str, address: str) -> dict[str, Any]:
         cleaned_name, cleaned_address = _validate_inputs(name, address)
     except ValueError as exc:
         return _invalid_tool_response(
-            tool_name="get_credit_check",
+            tool_name="get_credit_check_result",
             message=str(exc),
             requirements=[
                 "Provide `name` with at least 3 characters.",
@@ -233,7 +233,7 @@ def policy_overview() -> dict[str, Any]:
         "server": "credit-services",
         "policy_source": "rules",
         "credit_check_source": "credit_check",
-        "tools": ["get_loan_application_rules", "get_credit_check"],
+        "tools": ["get_loan_application_review_rules", "get_credit_check_result"],
         "rule_input_contract": ["policy_type"],
         "supported_policy_types": sorted(RULE_SETS),
         "rule_output_contract": ["ok", "source", "policy_type", "rules"],
@@ -254,8 +254,8 @@ def credit_rules_prompt() -> str:
     """Provide a ready-to-use prompt for the available MCP tools."""
     types = ", ".join(f"`{t}`" for t in sorted(RULE_SETS))
     return (
-        f"Call `get_loan_application_rules` with one of these policy types: {types}. "
-        "Call `get_credit_check` with `name` and `address`."
+        f"Call `get_loan_application_review_rules` with one of these policy types: {types}. "
+        "Call `get_credit_check_result` with `name` and `address`."
     )
 
 

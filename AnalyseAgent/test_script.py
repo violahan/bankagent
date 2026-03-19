@@ -35,9 +35,9 @@ SYSTEM_PROMPT = textwrap.dedent("""\
     Your job:
       a. Determine which loan product the applicant is applying for.
       b. If the user did not already provide a credit-check result but did provide
-         name and address, call the `get_credit_check` tool with those exact
+         name and address, call the `get_credit_check_result` tool with those exact
          `name` and `address` values to generate the credit-check result.
-      c. Call the `get_loan_application_rules` tool with the matching policy_type
+      c. Call the `get_loan_application_review_rules` tool with the matching policy_type
          (one of: personal_loan, vehicle_loan, mortgage_refinance) to retrieve
          the bank's current credit policy.
       d. Compare every field in the applicant's profile and credit report
@@ -51,7 +51,7 @@ SYSTEM_PROMPT = textwrap.dedent("""\
     If the user's text does not specify a loan product, infer the most likely
     one from context, or ask the user to clarify.
     If neither a credit-check result nor enough information to call
-    `get_credit_check` is present, ask the user for the missing information.
+    `get_credit_check_result` is present, ask the user for the missing information.
 """)
 
 DEFAULT_MCP_URL = "http://localhost:8000/mcp"
