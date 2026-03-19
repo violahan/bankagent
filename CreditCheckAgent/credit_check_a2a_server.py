@@ -21,6 +21,7 @@ from strands import Agent, tool
 from strands.models import BedrockModel
 from strands.multiagent.a2a import A2AServer
 import random
+from fastapi import FastAPI
 import re
 
 
@@ -62,7 +63,7 @@ AWS_REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS
 MODEL_ID = os.getenv("MODEL_ID", DEFAULT_MODEL)
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
 HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", "8082"))
+PORT = int(os.getenv("PORT", "8003"))
 
 
 def _validate_inputs(name: str, address: str) -> None:
@@ -188,7 +189,14 @@ a2a_server = A2AServer(
     ],
 )
 
-app = a2a_server.to_fastapi_app()
+app = FastAPI()
+
+@app.get("/ping")
+def ping():
+    return {"status": "healthy"}
+
+app.mount("/", a2a_server.to_fastapi_app())
+
 
 
 if __name__ == "__main__":

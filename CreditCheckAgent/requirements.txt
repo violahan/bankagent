@@ -2,5 +2,7 @@ strands-agents
 a2a-sdk
 uvicorn
 fastapi
-anthropic
-ollama
+strands-agents[a2a]
+bedrock-agentcore
+strands-agents-tools
+fastapi
