@@ -1,6 +1,20 @@
+from pathlib import Path
+import sys
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from shared_credit_check import (  # noqa: E402
+    format_credit_check_report,
+    lookup_credit_check,
+    parse_credit_check_request,
+)
+
 
 RULE_SETS: dict[str, dict] = {
     "personal_loan": {
@@ -57,8 +71,11 @@ RULE_SETS: dict[str, dict] = {
 mcp = FastMCP(
     host="0.0.0.0",
     stateless_http=True,
-    name="credit-check-rules",
-    instructions="Use this server to fetch hardcoded bank credit-check rules.",
+    name="credit-services",
+    instructions=(
+        "Use this server to fetch hardcoded bank credit policies and run mock "
+        "credit checks."
+    ),
 )
 
 
@@ -82,23 +99,54 @@ def get_credit_check_rules(policy_type: str) -> dict[str, Any]:
     }
 
 
-@mcp.resource("credit-check://policy-overview")
-def policy_overview() -> dict[str, Any]:
-    """Describe the available policy types and response shape."""
+@mcp.tool()
+def get_credit_check(request_text: str) -> dict[str, Any]:
+    """Return a mock credit check from the raw request sentence.
+
+    Args:
+        request_text: Request in the form
+            `I want the credit check result from <name> whose address is <address>`.
+    """
+    name, address = parse_credit_check_request(request_text)
+    report = lookup_credit_check(name=name, address=address)
     return {
-        "server": "credit-check-rules",
+        "source": "demo_credit_check",
+        "request_text": request_text.strip(),
+        "report": report,
+        "formatted_report": format_credit_check_report(report),
+    }
+
+
+@mcp.resource("credit-services://overview")
+def policy_overview() -> dict[str, Any]:
+    """Describe the available tools and response shapes."""
+    return {
+        "server": "credit-services",
         "policy_source": "demo_rules",
-        "input_contract": ["policy_type"],
+        "credit_check_source": "demo_credit_check",
+        "tools": ["get_credit_check_rules", "get_credit_check"],
+        "rule_input_contract": ["policy_type"],
         "supported_policy_types": sorted(RULE_SETS),
-        "output_contract": ["source", "policy_type", "rules"],
+        "rule_output_contract": ["source", "policy_type", "rules"],
+        "credit_check_input_contract": ["request_text"],
+        "credit_check_output_contract": [
+            "source",
+            "request_text",
+            "report",
+            "formatted_report",
+        ],
     }
 
 
 @mcp.prompt()
 def credit_rules_prompt() -> str:
-    """Provide a ready-to-use prompt for fetching a rule set."""
+    """Provide a ready-to-use prompt for the available MCP tools."""
     types = ", ".join(f"`{t}`" for t in sorted(RULE_SETS))
-    return f"Call `get_credit_check_rules` with one of these policy types: {types}."
+    return (
+        f"Call `get_credit_check_rules` with one of these policy types: {types}. "
+        "Call `get_credit_check` with "
+        "`I want the credit check result from <name> whose address is <address>`."
+    )
 
 
 if __name__ == "__main__":

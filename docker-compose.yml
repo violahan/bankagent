@@ -27,11 +27,11 @@ services:
     restart: "no"
 
   # ---------------------------------------------------------------------------
-  # RuleFetchMCP – credit-policy rules MCP server (port 8000)
+  # CreditServicesMCP – credit policy + credit check MCP server (port 8000)
   # ---------------------------------------------------------------------------
   mcp-server:
     build:
-      context: ./RuleFetchMCP
+      context: ./CreditServicesMCP
     ports:
       - "8000:8000"
     healthcheck:
@@ -72,7 +72,7 @@ services:
         condition: service_completed_successfully
     environment:
       ANALYSE_AGENT_URL: http://analyse-agent:8001
-      BUREAU_AGENT_URL: http://15.135.186.83:8080
+      CREDIT_CHECK_AGENT_URL: http://15.135.186.83:8080
       OLLAMA_HOST: http://ollama:11434
       MODEL_ID: qwen2.5
     stdin_open: true

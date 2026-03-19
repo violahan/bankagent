@@ -9,4 +9,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["python", "server.py"]
+CMD ["python", "mcp_server.py"]
