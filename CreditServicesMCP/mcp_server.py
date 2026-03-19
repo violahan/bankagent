@@ -139,7 +139,7 @@ mcp = FastMCP(
     stateless_http=True,
     name="credit-services",
     instructions=(
-        "Use this server to fetch hardcoded bank credit policies and generated "
+        "Use this server to fetch bank credit policies and generated "
         "credit checks."
     ),
 )
@@ -168,7 +168,7 @@ def get_credit_check_rules(policy_type: str) -> dict[str, Any]:
 
     return {
         "ok": True,
-        "source": "demo_rules",
+        "source": "rules",
         "policy_type": policy_type,
         "rules": RULE_SETS[policy_type],
     }
@@ -198,7 +198,7 @@ def get_credit_check(name: str, address: str) -> dict[str, Any]:
     report = _lookup_credit_check(name=cleaned_name, address=cleaned_address)
     return {
         "ok": True,
-        "source": "demo_credit_check",
+        "source": "credit_check",
         "name": cleaned_name,
         "address": cleaned_address,
         "report": report,
@@ -211,8 +211,8 @@ def policy_overview() -> dict[str, Any]:
     """Describe the available tools and response shapes."""
     return {
         "server": "credit-services",
-        "policy_source": "demo_rules",
-        "credit_check_source": "demo_credit_check",
+        "policy_source": "rules",
+        "credit_check_source": "credit_check",
         "tools": ["get_credit_check_rules", "get_credit_check"],
         "rule_input_contract": ["policy_type"],
         "supported_policy_types": sorted(RULE_SETS),
