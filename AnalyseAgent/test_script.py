@@ -6,20 +6,19 @@ analyses a user profile + credit-check result against those rules.
 Usage:
     1. Start the RuleFetchMCP server:
            cd RuleFetchMCP && python mcp_server.py
-    2. Make sure Ollama is running with a tool-capable model pulled:
-           ollama pull qwen2.5
+    2. Ensure AWS credentials and region for Bedrock are available.
     3. Run this agent:
-           cd AnalyseAgent && python agent.py
+           cd AnalyseAgent && python test_script.py
 """
 
 import argparse
 import os
 import textwrap
 
+import boto3
 from mcp.client.streamable_http import streamablehttp_client
 from strands import Agent
-from strands.models.anthropic import AnthropicModel
-from strands.models.ollama import OllamaModel
+from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
 
 SYSTEM_PROMPT = textwrap.dedent("""\
@@ -48,10 +47,9 @@ SYSTEM_PROMPT = textwrap.dedent("""\
 """)
 
 DEFAULT_MCP_URL = "http://localhost:8000/mcp"
-DEFAULT_OLLAMA_HOST = "http://localhost:11434"
-DEFAULT_MODEL_PROVIDER = "anthropic"
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
-DEFAULT_ANTHROPIC_MAX_TOKENS = 4096
+DEFAULT_AWS_REGION = "ap-southeast-2"
+DEFAULT_MODEL = "apac.anthropic.claude-3-7-sonnet-20250219-v1:0"
+DEFAULT_MAX_TOKENS = 4096
 
 
 def analyse(
@@ -59,8 +57,7 @@ def analyse(
     credit_result: str,
     *,
     mcp_url: str = DEFAULT_MCP_URL,
-    model_provider: str = os.getenv("MODEL_PROVIDER", DEFAULT_MODEL_PROVIDER).strip().lower(),
-    ollama_host: str = DEFAULT_OLLAMA_HOST,
+    aws_region: str = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS_REGION)),
     model_id: str = DEFAULT_MODEL,
 ) -> str:
     """Run a single analysis and return the agent's response text."""
@@ -73,24 +70,12 @@ def analyse(
 
     mcp_client = MCPClient(lambda: streamablehttp_client(mcp_url))
 
-    if model_provider == "anthropic":
-        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not anthropic_api_key:
-            raise ValueError("ANTHROPIC_API_KEY is required when MODEL_PROVIDER=anthropic.")
-        model = AnthropicModel(
-            client_args={"api_key": anthropic_api_key},
-            model_id=model_id,
-            max_tokens=int(os.getenv("ANTHROPIC_MAX_TOKENS", str(DEFAULT_ANTHROPIC_MAX_TOKENS))),
-        )
-    elif model_provider == "ollama":
-        model = OllamaModel(
-            host=ollama_host,
-            model_id=model_id,
-        )
-    else:
-        raise ValueError(
-            f"Unsupported MODEL_PROVIDER={model_provider!r}. Use 'anthropic' or 'ollama'."
-        )
+    session = boto3.Session(region_name=aws_region)
+    model = BedrockModel(
+        model_id=model_id,
+        max_tokens=int(os.getenv("MAX_TOKENS", str(DEFAULT_MAX_TOKENS))),
+        boto_session=session,
+    )
 
     with mcp_client:
         tools = mcp_client.list_tools_sync()
@@ -108,8 +93,7 @@ def analyse(
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Credit-check analysis agent")
     parser.add_argument("--mcp-url", default=DEFAULT_MCP_URL, help="RuleFetchMCP streamable-HTTP URL")
-    parser.add_argument("--provider", default=os.getenv("MODEL_PROVIDER", DEFAULT_MODEL_PROVIDER), help="Model provider: anthropic or ollama")
-    parser.add_argument("--ollama-host", default=DEFAULT_OLLAMA_HOST, help="Ollama server address")
+    parser.add_argument("--aws-region", default=os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS_REGION)), help="AWS region for Bedrock")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Model id")
     return parser.parse_args(argv)
 
@@ -159,8 +143,7 @@ if __name__ == "__main__":
         user_profile,
         credit_result,
         mcp_url=args.mcp_url,
-        model_provider=args.provider,
-        ollama_host=args.ollama_host,
+        aws_region=args.aws_region,
         model_id=args.model,
     )
 
