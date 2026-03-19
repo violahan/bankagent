@@ -63,7 +63,7 @@ AWS_REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS
 MODEL_ID = os.getenv("MODEL_ID", DEFAULT_MODEL)
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
 HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", "8003"))
+PORT = int(os.getenv("PORT", "8082"))
 
 
 def _validate_inputs(name: str, address: str) -> None:
