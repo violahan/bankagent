@@ -147,7 +147,16 @@ mcp = FastMCP(
 
 @mcp.tool()
 def get_loan_application_rules(policy_type: str) -> dict[str, Any]:
-    """Return a hardcoded bank credit policy for the requested product type.
+    """Get the bank rules used to review a loan application for a specific product.
+
+    Use this tool when you already know which product the applicant is applying
+    for and you need the rule thresholds for decisioning. Pass `policy_type` as
+    one of `personal_loan`, `vehicle_loan`, or `mortgage_refinance`.
+
+    On success, this tool returns `ok: true` and a `rules` object containing the
+    review criteria for that product. If the input is invalid, it returns
+    `ok: false` with a `message` and `requirements` describing what the caller
+    must provide.
 
     Args:
         policy_type: One of `personal_loan`, `vehicle_loan`, or `mortgage_refinance`.
@@ -176,7 +185,18 @@ def get_loan_application_rules(policy_type: str) -> dict[str, Any]:
 
 @mcp.tool()
 def get_credit_check(name: str, address: str) -> dict[str, Any]:
-    """Return a generated credit check for the supplied applicant.
+    """Generate a credit-check result for an applicant using their name and address.
+
+    Use this tool when the caller needs a credit profile for application review
+    and the applicant's `name` and `address` are available. The returned report
+    keeps the supplied name and address, then generates credit fields such as
+    bureau score, debt-to-income ratio, utilisation, delinquencies,
+    bankruptcies, hard inquiries, and external rating.
+
+    On success, this tool returns `ok: true`, a structured `report`, and a
+    human-readable `formatted_report`. If the input is invalid, it returns
+    `ok: false` with a `message` and `requirements` describing the expected
+    input format.
 
     Args:
         name: Applicant name.
