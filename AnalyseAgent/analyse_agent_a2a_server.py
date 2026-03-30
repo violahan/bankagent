@@ -240,7 +240,7 @@ AWS_REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS
 MODEL_ID = os.getenv("MODEL_ID", DEFAULT_MODEL)
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
 HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", "8001"))
+PORT = int(os.getenv("PORT", "9000"))
 
 # MCP connection kept alive for the lifetime of the process.
 mcp_client = _build_mcp_client(mcp_url=MCP_URL)
