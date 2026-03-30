@@ -11,6 +11,8 @@ responses.  Useful for smoke-testing after bringing up the full stack:
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
 import textwrap
 import time
@@ -18,10 +20,9 @@ import time
 from orchestrator import (
     ANALYSE_AGENT_URL,
     CREDIT_CHECK_AGENT_URL,
-    MODEL_ID,
-    AWS_REGION,
+    DEFAULT_MODEL_ID,
+    DEFAULT_REGION,
     build_orchestrator,
-    extract_result_text,
 )
 
 TEST_QUESTIONS = [
@@ -99,8 +100,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Test script for the Bank Orchestrator")
     parser.add_argument("--analyse-url", default=ANALYSE_AGENT_URL, help="AnalyseAgent A2A URL")
     parser.add_argument("--bureau-url", default=CREDIT_CHECK_AGENT_URL, help="Credit check agent A2A URL")
-    parser.add_argument("--aws-region", default=AWS_REGION, help="AWS region for Bedrock")
-    parser.add_argument("--model", default=MODEL_ID, help="Model id")
+    parser.add_argument("--aws-region", default=DEFAULT_REGION, help="AWS region for Bedrock")
+    parser.add_argument("--model", default=DEFAULT_MODEL_ID, help="Model id")
     parser.add_argument(
         "-n", "--number",
         type=int,
@@ -108,6 +109,28 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Run only the Nth question (1-based). Omit to run all.",
     )
     return parser.parse_args(argv)
+
+
+def extract_result_text(result) -> str:
+    message = getattr(result, "message", result)
+    if isinstance(message, str):
+        return message
+    if isinstance(message, dict):
+        content = message.get("content")
+        if isinstance(content, list):
+            text_parts = [
+                item.get("text", "").strip()
+                for item in content
+                if isinstance(item, dict) and isinstance(item.get("text"), str)
+            ]
+            text_parts = [part for part in text_parts if part]
+            if text_parts:
+                return "\n".join(text_parts)
+        text = message.get("text")
+        if isinstance(text, str) and text.strip():
+            return text
+        return json.dumps(message, indent=2, default=str)
+    return str(message)
 
 
 def run_tests(
@@ -145,12 +168,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print("Building orchestrator …")
-    orchestrator = build_orchestrator(
-        analyse_url=args.analyse_url,
-        credit_check_url=args.bureau_url,
-        aws_region=args.aws_region,
-        model_id=args.model,
-    )
+    if args.analyse_url != ANALYSE_AGENT_URL:
+        os.environ["ANALYSE_AGENT_URL"] = args.analyse_url
+    if args.bureau_url != CREDIT_CHECK_AGENT_URL:
+        os.environ["CREDIT_CHECK_AGENT_URL"] = args.bureau_url
+
+    orchestrator = build_orchestrator(aws_region=args.aws_region, model_id=args.model)
     print("Orchestrator ready.\n")
 
     run_tests(orchestrator, TEST_QUESTIONS, selected=args.number)

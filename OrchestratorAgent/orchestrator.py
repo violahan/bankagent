@@ -17,7 +17,6 @@ from typing import Any
 from urllib.parse import quote
 
 import boto3
-import httpx
 import requests
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands import Agent
@@ -86,19 +85,17 @@ def _resolve_runtime_url(*, env_url: str, env_arn: str, default_arn: str, region
     return _runtime_url_from_arn(runtime_arn, region)
 
 
-AWS_REGION = DEFAULT_REGION
-MODEL_ID = DEFAULT_MODEL_ID
 ANALYSE_AGENT_URL = _resolve_runtime_url(
     env_url="ANALYSE_AGENT_URL",
     env_arn="ANALYSE_AGENT_ARN",
     default_arn=DEFAULT_ANALYSE_AGENT_ARN,
-    region=AWS_REGION,
+    region=DEFAULT_REGION,
 )
 CREDIT_CHECK_AGENT_URL = _resolve_runtime_url(
     env_url="CREDIT_CHECK_AGENT_URL",
     env_arn="CREDIT_CHECK_AGENT_ARN",
     default_arn=DEFAULT_CREDIT_CHECK_AGENT_ARN,
-    region=AWS_REGION,
+    region=DEFAULT_REGION,
 )
 
 
@@ -196,28 +193,20 @@ class CognitoTokenClient:
             return self._access_token
 
 
-class CognitoBearerAuth(httpx.Auth):
-    def __init__(self, token_client: CognitoTokenClient):
-        self._token_client = token_client
-
-    def auth_flow(self, request: httpx.Request):
-        request.headers["Authorization"] = f"Bearer {self._token_client.access_token}"
-        yield request
-
-
 def _build_httpx_client_args() -> dict[str, Any]:
-    if os.getenv("DISABLE_A2A_AUTH", "").lower() in {"1", "true", "yes"}:
-        return {"headers": {"Content-Type": "application/json"}}
-
     token_client = CognitoTokenClient(
         discovery_url=os.getenv("DISCOVERY_URL", DEFAULT_DISCOVERY_URL),
         client_id=os.getenv("CLIENT_ID", DEFAULT_CLIENT_ID),
         username=os.getenv("USERNAME", DEFAULT_COGNITO_USERNAME),
         password=os.getenv("PASSWORD", DEFAULT_COGNITO_PASSWORD),
     )
+    logger.info("token: ", token_client.access_token)
     return {
-        "auth": CognitoBearerAuth(token_client),
-        "headers": {"Content-Type": "application/json"},
+        "headers": {
+            "Authorization": f"Bearer {token_client.access_token}",
+            "Content-Type": "application/json",
+        },
+        "timeout": 300,
     }
 
 
@@ -227,28 +216,6 @@ def _extract_prompt(payload: dict[str, Any]) -> str:
         if isinstance(value, str) and value.strip():
             return value.strip()
     raise ValueError("Input payload must include a non-empty prompt string.")
-
-
-def extract_result_text(result: Any) -> str:
-    message = getattr(result, "message", result)
-    if isinstance(message, str):
-        return message
-    if isinstance(message, dict):
-        content = message.get("content")
-        if isinstance(content, list):
-            text_parts = [
-                item.get("text", "").strip()
-                for item in content
-                if isinstance(item, dict) and isinstance(item.get("text"), str)
-            ]
-            text_parts = [part for part in text_parts if part]
-            if text_parts:
-                return "\n".join(text_parts)
-        text = message.get("text")
-        if isinstance(text, str) and text.strip():
-            return text
-        return json.dumps(message, indent=2, default=str)
-    return str(message)
 
 
 def build_orchestrator(
@@ -294,13 +261,13 @@ def build_orchestrator(
 
 
 app = BedrockAgentCoreApp()
-orchestrator = build_orchestrator()
 
 
 @app.entrypoint
 def agent_invocation(payload: dict[str, Any], context: Any) -> dict[str, Any]:
     del context
     prompt = _extract_prompt(payload)
+    orchestrator = build_orchestrator()
     result = orchestrator(prompt)
     return {"result": getattr(result, "message", result)}
 
