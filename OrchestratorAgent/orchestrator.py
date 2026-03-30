@@ -82,16 +82,13 @@ SYSTEM_PROMPT = textwrap.dedent("""\
       3. **Rules**
          - Include the applicable credit-policy rules and the rule-by-rule
            outcome from the analysis.
-      4. **Summary in English**
+      4. **Recommendation**
          - Provide a plain-English explanation of the outcome and clearly state
            whether the application is PASS, FAIL, or MANUAL REVIEW.
 
     When the analysis agent returns a structured recommendation, preserve that
     recommendation accurately. Do not omit the rules section in the final
     report.
-
-    Before sending any final answer, verify that the response is entirely in
-    English.
 """)
 
 
