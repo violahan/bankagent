@@ -1,7 +1,7 @@
-default_agent: bank_rules_mcp_server_oauth
+default_agent: bank_rule_mcp_server
 agents:
-  bank_rules_mcp_server_oauth:
-    name: bank_rules_mcp_server_oauth
+  bank_rule_mcp_server:
+    name: bank_rule_mcp_server
     language: python
     node_version: '20'
     entrypoint: /Users/viohan/Desktop/BankAgent/RuleFetchMCP/mcp_server.py
@@ -11,11 +11,11 @@ agents:
     container_runtime: none
     source_path: /Users/viohan/Desktop/BankAgent/RuleFetchMCP
     aws:
-      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKRuntime-ap-southeast-2-e1404cecd2
+      execution_role: arn:aws:iam::543486084696:role/AmazonBedrockAgentCoreSDKRuntime-ap-southeast-2-7eb3509a21
       execution_role_auto_create: false
-      account: '590183866516'
+      account: '543486084696'
       region: ap-southeast-2
-      ecr_repository: 590183866516.dkr.ecr.ap-southeast-2.amazonaws.com/bedrock-agentcore-bank_rules_mcp_server_oauth
+      ecr_repository: 543486084696.dkr.ecr.ap-southeast-2.amazonaws.com/bedrock-agentcore-bank_rule_mcp_server
       ecr_auto_create: false
       s3_path: null
       s3_auto_create: false
@@ -30,13 +30,13 @@ agents:
         idle_runtime_session_timeout: null
         max_lifetime: null
     bedrock_agentcore:
-      agent_id: bank_rules_mcp_server_oauth-dk7JZVCwJ9
-      agent_arn: arn:aws:bedrock-agentcore:ap-southeast-2:590183866516:runtime/bank_rules_mcp_server_oauth-dk7JZVCwJ9
+      agent_id: bank_rule_mcp_server-KiPcLqA7bt
+      agent_arn: arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:runtime/bank_rule_mcp_server-KiPcLqA7bt
       agent_session_id: null
     codebuild:
-      project_name: bedrock-agentcore-bank_rules_mcp_server_oauth-builder
-      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKCodeBuild-ap-southeast-2-e1404cecd2
-      source_bucket: bedrock-agentcore-codebuild-sources-590183866516-ap-southeast-2
+      project_name: bedrock-agentcore-bank_rule_mcp_server-builder
+      execution_role: arn:aws:iam::543486084696:role/AmazonBedrockAgentCoreSDKCodeBuild-ap-southeast-2-7eb3509a21
+      source_bucket: bedrock-agentcore-codebuild-sources-543486084696-ap-southeast-2
     memory:
       mode: NO_MEMORY
       memory_id: null
@@ -56,9 +56,9 @@ agents:
       duration_seconds: 300
     authorizer_configuration:
       customJWTAuthorizer:
-        discoveryUrl: https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_6AnwIssYD/.well-known/openid-configuration
+        discoveryUrl: https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_NeVlNqJt8/.well-known/openid-configuration
         allowedClients:
-        - 2eusmbe7ujgh611vh4m4p5n22g
+        - 4p0e9lcp09e920pgg9hfbqp3tj
     request_header_configuration:
       requestHeaderAllowlist:
       - Authorization
