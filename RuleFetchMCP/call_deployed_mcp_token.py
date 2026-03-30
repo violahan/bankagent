@@ -9,7 +9,7 @@ from cognito_token_client import CognitoTokenClient
 
 
 async def main():
-    agent_arn = os.getenv('AGENT_ARN', "arn:aws:bedrock-agentcore:ap-southeast-2:590183866516:runtime/bank_rules_mcp_server_oauth-dk7JZVCwJ9")
+    agent_arn = os.getenv('AGENT_ARN', "arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:runtime/bank_rule_mcp_server-KiPcLqA7bt")
     if not agent_arn:
         print("Error: AGENT_ARN environment variable is not set")
         sys.exit(1)
@@ -17,9 +17,9 @@ async def main():
     token_client = CognitoTokenClient(
         discovery_url=os.getenv(
             "DISCOVERY_URL",
-            "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_6AnwIssYD/.well-known/openid-configuration",
+            "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_NeVlNqJt8/.well-known/openid-configuration",
         ),
-        client_id=os.getenv("CLIENT_ID", "2eusmbe7ujgh611vh4m4p5n22g"),
+        client_id=os.getenv("CLIENT_ID", "4p0e9lcp09e920pgg9hfbqp3tj"),
         username=os.getenv("USERNAME", "MCP_USER"),
         password=os.getenv("PASSWORD", "MCP_PASSWORD"),
     )
