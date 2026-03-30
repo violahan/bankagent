@@ -200,7 +200,7 @@ def _build_httpx_client_args() -> dict[str, Any]:
         username=os.getenv("USERNAME", DEFAULT_COGNITO_USERNAME),
         password=os.getenv("PASSWORD", DEFAULT_COGNITO_PASSWORD),
     )
-    logger.info("token: ", token_client.access_token)
+    logger.info("Cognito access token acquired for orchestrator HTTP client.")
     return {
         "headers": {
             "Authorization": f"Bearer {token_client.access_token}",
