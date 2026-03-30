@@ -184,9 +184,9 @@ SYSTEM_PROMPT = textwrap.dedent("""\
     one from context, or ask the user to clarify.
 """)
 
-DEFAULT_AGENT_ARN = "arn:aws:bedrock-agentcore:ap-southeast-2:590183866516:runtime/bank_rules_mcp_server_oauth-dk7JZVCwJ9"
-DEFAULT_DISCOVERY_URL = "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_6AnwIssYD/.well-known/openid-configuration"
-DEFAULT_CLIENT_ID = "2eusmbe7ujgh611vh4m4p5n22g"
+DEFAULT_AGENT_ARN = "arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:runtime/bank_rule_mcp_server-KiPcLqA7bt"
+DEFAULT_DISCOVERY_URL = "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_NeVlNqJt8/.well-known/openid-configuration"
+DEFAULT_CLIENT_ID = "4p0e9lcp09e920pgg9hfbqp3tj"
 DEFAULT_COGNITO_USERNAME = "MCP_USER"
 DEFAULT_COGNITO_PASSWORD = "MCP_PASSWORD"
 
