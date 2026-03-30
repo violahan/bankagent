@@ -11,11 +11,11 @@ agents:
     container_runtime: none
     source_path: /Users/viohan/Desktop/BankAgent/AnalyseAgent
     aws:
-      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKRuntime-ap-southeast-2-a3e57b2edf
+      execution_role: arn:aws:iam::543486084696:role/AmazonBedrockAgentCoreSDKRuntime-ap-southeast-2-a3e57b2edf
       execution_role_auto_create: false
-      account: '590183866516'
+      account: '543486084696'
       region: ap-southeast-2
-      ecr_repository: 590183866516.dkr.ecr.ap-southeast-2.amazonaws.com/bedrock-agentcore-analyse_agent_a2a_server
+      ecr_repository: 543486084696.dkr.ecr.ap-southeast-2.amazonaws.com/bedrock-agentcore-analyse_agent_a2a_server
       ecr_auto_create: false
       s3_path: null
       s3_auto_create: false
@@ -30,21 +30,21 @@ agents:
         idle_runtime_session_timeout: null
         max_lifetime: null
     bedrock_agentcore:
-      agent_id: analyse_agent_a2a_server-fkh77KBjeh
-      agent_arn: arn:aws:bedrock-agentcore:ap-southeast-2:590183866516:runtime/analyse_agent_a2a_server-fkh77KBjeh
+      agent_id: analyse_agent_a2a_server-MHGOl53U4r
+      agent_arn: arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:runtime/analyse_agent_a2a_server-MHGOl53U4r
       agent_session_id: null
     codebuild:
       project_name: bedrock-agentcore-analyse_agent_a2a_server-builder
-      execution_role: arn:aws:iam::590183866516:role/AmazonBedrockAgentCoreSDKCodeBuild-ap-southeast-2-a3e57b2edf
-      source_bucket: bedrock-agentcore-codebuild-sources-590183866516-ap-southeast-2
+      execution_role: arn:aws:iam::543486084696:role/AmazonBedrockAgentCoreSDKCodeBuild-ap-southeast-2-a3e57b2edf
+      source_bucket: bedrock-agentcore-codebuild-sources-543486084696-ap-southeast-2
     memory:
-      mode: NO_MEMORY
-      memory_id: null
-      memory_arn: null
-      memory_name: null
+      mode: STM_ONLY
+      memory_id: analyse_agent_a2a_server_mem-lrwRwb8YDT
+      memory_arn: arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:memory/analyse_agent_a2a_server_mem-lrwRwb8YDT
+      memory_name: analyse_agent_a2a_server_mem
       event_expiry_days: 30
-      first_invoke_memory_check_done: false
-      was_created_by_toolkit: false
+      first_invoke_memory_check_done: true
+      was_created_by_toolkit: true
     identity:
       credential_providers: []
       workload: null
@@ -56,9 +56,9 @@ agents:
       duration_seconds: 300
     authorizer_configuration:
       customJWTAuthorizer:
-        discoveryUrl: https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_6AnwIssYD/.well-known/openid-configuration
+        discoveryUrl: https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_NeVlNqJt8/.well-known/openid-configuration
         allowedClients:
-        - 2eusmbe7ujgh611vh4m4p5n22g
+        - 4p0e9lcp09e920pgg9hfbqp3tj
     request_header_configuration:
       requestHeaderAllowlist:
       - Authorization
