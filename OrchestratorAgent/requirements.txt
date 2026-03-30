@@ -1,3 +1,7 @@
+bedrock-agentcore
+boto3
+httpx
+requests
 strands-agents
 strands-agents-tools
 a2a-sdk
