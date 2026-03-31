@@ -14,6 +14,7 @@ import re
 import threading
 import time
 from typing import Any
+from urllib.parse import quote
 
 import boto3
 import requests
@@ -31,16 +32,8 @@ DEFAULT_CLIENT_ID = "4p0e9lcp09e920pgg9hfbqp3tj"
 DEFAULT_COGNITO_USERNAME = "MCP_USER"
 DEFAULT_COGNITO_PASSWORD = "MCP_PASSWORD"
 
-DEFAULT_ANALYSE_AGENT_URL = (
-    "https://bedrock-agentcore.ap-southeast-2.amazonaws.com/"
-    "runtimes/arn%3Aaws%3Abedrock-agentcore%3Aap-southeast-2%3A543486084696%3A"
-    "runtime%2Fanalyse_agent_a2a_server-MHGOl53U4r/invocations/"
-)
-DEFAULT_CREDIT_CHECK_AGENT_URL = (
-    "https://bedrock-agentcore.ap-southeast-2.amazonaws.com/"
-    "runtimes/arn%3Aaws%3Abedrock-agentcore%3Aap-southeast-2%3A543486084696%3A"
-    "runtime%2Fcredit_check_a2a_server-csdekS8so2/invocations/"
-)
+DEFAULT_ANALYSE_AGENT_ARN = "arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:runtime/analyse_agent_a2a_server-MHGOl53U4r"
+DEFAULT_CREDIT_CHECK_AGENT_ARN = "arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:runtime/credit_check_a2a_server-csdekS8so2"
 
 SYSTEM_PROMPT = """You are a bank operations orchestrator.
 
@@ -200,8 +193,18 @@ def build_orchestrator(
     model_id: str = DEFAULT_MODEL_ID,
     max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> Agent:
-    analyse_url = os.getenv("ANALYSE_AGENT_URL", DEFAULT_ANALYSE_AGENT_URL)
-    credit_check_url = os.getenv("CREDIT_CHECK_AGENT_URL", DEFAULT_CREDIT_CHECK_AGENT_URL)
+    analyse_agent_arn = os.getenv("ANALYSE_AGENT_ARN", DEFAULT_ANALYSE_AGENT_ARN)
+    credit_check_agent_arn = os.getenv("CREDIT_CHECK_AGENT_ARN", DEFAULT_CREDIT_CHECK_AGENT_ARN)
+    analyse_url = os.getenv(
+        "ANALYSE_AGENT_URL",
+        f"https://bedrock-agentcore.{aws_region}.amazonaws.com/"
+        f"runtimes/{quote(analyse_agent_arn, safe='')}/invocations/",
+    )
+    credit_check_url = os.getenv(
+        "CREDIT_CHECK_AGENT_URL",
+        f"https://bedrock-agentcore.{aws_region}.amazonaws.com/"
+        f"runtimes/{quote(credit_check_agent_arn, safe='')}/invocations/",
+    )
 
     logger.info("Using AnalyseAgent runtime: %s", analyse_url)
     logger.info("Using CreditCheckAgent runtime: %s", credit_check_url)
