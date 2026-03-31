@@ -14,7 +14,6 @@ import re
 import threading
 import time
 from typing import Any
-from urllib.parse import quote
 
 import boto3
 import requests
@@ -32,8 +31,16 @@ DEFAULT_CLIENT_ID = "4p0e9lcp09e920pgg9hfbqp3tj"
 DEFAULT_COGNITO_USERNAME = "MCP_USER"
 DEFAULT_COGNITO_PASSWORD = "MCP_PASSWORD"
 
-DEFAULT_ANALYSE_AGENT_ARN = "arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:runtime/analyse_agent_a2a_server-MHGOl53U4r"
-DEFAULT_CREDIT_CHECK_AGENT_ARN = "arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:runtime/credit_check_a2a_server-csdekS8so2"
+DEFAULT_ANALYSE_AGENT_URL = (
+    "https://bedrock-agentcore.ap-southeast-2.amazonaws.com/"
+    "runtimes/arn%3Aaws%3Abedrock-agentcore%3Aap-southeast-2%3A543486084696%3A"
+    "runtime%2Fanalyse_agent_a2a_server-MHGOl53U4r/invocations/"
+)
+DEFAULT_CREDIT_CHECK_AGENT_URL = (
+    "https://bedrock-agentcore.ap-southeast-2.amazonaws.com/"
+    "runtimes/arn%3Aaws%3Abedrock-agentcore%3Aap-southeast-2%3A543486084696%3A"
+    "runtime%2Fcredit_check_a2a_server-csdekS8so2/invocations/"
+)
 
 SYSTEM_PROMPT = """You are a bank operations orchestrator.
 
@@ -65,37 +72,6 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-
-
-def _runtime_url_from_arn(runtime_arn: str, region: str) -> str:
-    encoded_arn = quote(runtime_arn, safe="")
-    return (
-        f"https://bedrock-agentcore.{region}.amazonaws.com/"
-        f"runtimes/{encoded_arn}/invocations?qualifier=DEFAULT"
-    )
-
-
-def _resolve_runtime_url(*, env_url: str, env_arn: str, default_arn: str, region: str) -> str:
-    direct_url = os.getenv(env_url)
-    if direct_url:
-        return direct_url
-
-    runtime_arn = os.getenv(env_arn, default_arn)
-    return _runtime_url_from_arn(runtime_arn, region)
-
-
-ANALYSE_AGENT_URL = _resolve_runtime_url(
-    env_url="ANALYSE_AGENT_URL",
-    env_arn="ANALYSE_AGENT_ARN",
-    default_arn=DEFAULT_ANALYSE_AGENT_ARN,
-    region=DEFAULT_REGION,
-)
-CREDIT_CHECK_AGENT_URL = _resolve_runtime_url(
-    env_url="CREDIT_CHECK_AGENT_URL",
-    env_arn="CREDIT_CHECK_AGENT_ARN",
-    default_arn=DEFAULT_CREDIT_CHECK_AGENT_ARN,
-    region=DEFAULT_REGION,
 )
 
 
@@ -224,18 +200,8 @@ def build_orchestrator(
     model_id: str = DEFAULT_MODEL_ID,
     max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> Agent:
-    analyse_url = _resolve_runtime_url(
-        env_url="ANALYSE_AGENT_URL",
-        env_arn="ANALYSE_AGENT_ARN",
-        default_arn=DEFAULT_ANALYSE_AGENT_ARN,
-        region=aws_region,
-    )
-    credit_check_url = _resolve_runtime_url(
-        env_url="CREDIT_CHECK_AGENT_URL",
-        env_arn="CREDIT_CHECK_AGENT_ARN",
-        default_arn=DEFAULT_CREDIT_CHECK_AGENT_ARN,
-        region=aws_region,
-    )
+    analyse_url = os.getenv("ANALYSE_AGENT_URL", DEFAULT_ANALYSE_AGENT_URL)
+    credit_check_url = os.getenv("CREDIT_CHECK_AGENT_URL", DEFAULT_CREDIT_CHECK_AGENT_URL)
 
     logger.info("Using AnalyseAgent runtime: %s", analyse_url)
     logger.info("Using CreditCheckAgent runtime: %s", credit_check_url)
