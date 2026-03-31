@@ -2,12 +2,6 @@
 
 Exposes the AnalyseAgent as an A2A-compliant service using
 strands.multiagent.a2a.A2AServer and FastAPI.
-
-Usage (remote – default):
-    cd AnalyseAgent && uvicorn analyse_agent_a2a_server:app --host 0.0.0.0 --port 8001
-
-Usage (local MCP):
-    MCP_URL=http://localhost:8000/mcp uvicorn analyse_agent_a2a_server:app --host 0.0.0.0 --port 8001
 """
 
 from __future__ import annotations
@@ -21,6 +15,7 @@ import re
 import textwrap
 import threading
 import time
+from urllib.parse import quote
 
 import boto3
 import requests
@@ -193,6 +188,14 @@ DEFAULT_COGNITO_PASSWORD = "MCP_PASSWORD"
 DEFAULT_AWS_REGION = "ap-southeast-2"
 DEFAULT_MODEL = "apac.anthropic.claude-sonnet-4-20250514-v1:0"
 DEFAULT_MAX_TOKENS = 4096
+DEFAULT_A2A_RUNTIME_ARN = (
+    "arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:"
+    "runtime/analyse_agent_a2a_server-MHGOl53U4r"
+)
+DEFAULT_PUBLIC_A2A_URL = (
+    f"https://bedrock-agentcore.{DEFAULT_AWS_REGION}.amazonaws.com/"
+    f"runtimes/{quote(DEFAULT_A2A_RUNTIME_ARN, safe='')}/invocations/"
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -203,17 +206,9 @@ def _build_remote_mcp_url(agent_arn: str) -> str:
     return f"https://bedrock-agentcore.ap-southeast-2.amazonaws.com/runtimes/{encoded_arn}/invocations?qualifier=DEFAULT"
 
 
-def _build_mcp_client(
-    *,
-    mcp_url: str | None = None,
-    agent_arn: str | None = None,
-) -> MCPClient:
-    """Build an MCPClient for either a local URL or a remote ARN with Cognito auth."""
-    if mcp_url:
-        logger.info("Building MCP client for local URL: %s", mcp_url)
-        return MCPClient(lambda: streamablehttp_client(mcp_url))
-
-    arn = agent_arn or os.getenv("AGENT_ARN", DEFAULT_AGENT_ARN)
+def _build_mcp_client() -> MCPClient:
+    """Build an MCPClient for the remote MCP runtime with Cognito auth."""
+    arn = os.getenv("AGENT_ARN", DEFAULT_AGENT_ARN)
     remote_url = _build_remote_mcp_url(arn)
     logger.info("Building MCP client for remote ARN: %s", arn)
     logger.info("Remote MCP URL: %s", remote_url)
@@ -234,30 +229,25 @@ def _build_mcp_client(
 
     return MCPClient(_connect)
 
-
-MCP_URL = os.getenv("MCP_URL")
 AWS_REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS_REGION))
 MODEL_ID = os.getenv("MODEL_ID", DEFAULT_MODEL)
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
-HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", "9000"))
 
 # MCP connection kept alive for the lifetime of the process.
-mcp_client = _build_mcp_client(mcp_url=MCP_URL)
+mcp_client = _build_mcp_client()
 logger.info("Opening MCP client session ...")
 mcp_client.__enter__()
 atexit.register(lambda: mcp_client.__exit__(None, None, None))
 logger.info("MCP client session opened")
+logger.info("Public A2A URL: %s", DEFAULT_PUBLIC_A2A_URL)
 
 tools = mcp_client.list_tools_sync()
-tool_names = [t.tool_name for t in tools]
-logger.info("MCP connected – %d tool(s) available: %s", len(tools), tool_names)
+logger.info("MCP connected – %d tool(s) available: %s", len(tools), [t.tool_name for t in tools])
 
-session = boto3.Session(region_name=AWS_REGION)
 model = BedrockModel(
     model_id=MODEL_ID,
     max_tokens=MAX_TOKENS,
-    boto_session=session,
+    boto_session=boto3.Session(region_name=AWS_REGION),
 )
 
 agent = Agent(
@@ -275,8 +265,10 @@ agent = Agent(
 
 a2a_server = A2AServer(
     agent=agent,
-    host=HOST,
-    port=PORT,
+    host="0.0.0.0",
+    port=9000,
+    http_url=DEFAULT_PUBLIC_A2A_URL,
+    serve_at_root=True,
     version="1.0.0",
     skills=[
         AgentSkill(
@@ -302,4 +294,4 @@ app = a2a_server.to_fastapi_app()
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host=HOST, port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=9000)
