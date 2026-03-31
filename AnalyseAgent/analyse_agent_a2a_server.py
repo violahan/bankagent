@@ -25,6 +25,8 @@ from strands import Agent
 from strands.models import BedrockModel
 from strands.multiagent.a2a import A2AServer
 from strands.tools.mcp import MCPClient
+from fastapi import FastAPI
+import uvicorn
 
 
 class CognitoTokenClient:
@@ -288,10 +290,13 @@ a2a_server = A2AServer(
     ],
 )
 
-app = a2a_server.to_fastapi_app()
+app = FastAPI()
 
+@app.get("/ping")
+def ping():
+    return {"status": "healthy"}
+
+app.mount("/", a2a_server.to_fastapi_app())
 
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=9000)
