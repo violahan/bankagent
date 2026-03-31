@@ -3,17 +3,13 @@
 Exposes the CreditCheckAgent as an A2A-compliant service using
 strands.multiagent.a2a.A2AServer and FastAPI.
 
-Usage:
-    1. Ensure AWS credentials and region for Bedrock are available.
-    2. Start this A2A server:
-           cd CreditCheckAgent && uvicorn a2a_server:app --host 0.0.0.0 --port 8082
 """
 
 from __future__ import annotations
 
-import logging
 import os
 import textwrap
+from urllib.parse import quote
 
 import boto3
 from a2a.types import AgentSkill
@@ -22,6 +18,7 @@ from strands.models import BedrockModel
 from strands.multiagent.a2a import A2AServer
 import random
 from fastapi import FastAPI
+import uvicorn
 import re
 
 
@@ -56,14 +53,18 @@ SYSTEM_PROMPT = textwrap.dedent("""\
 DEFAULT_AWS_REGION = "ap-southeast-2"
 DEFAULT_MODEL = "apac.anthropic.claude-sonnet-4-20250514-v1:0"
 DEFAULT_MAX_TOKENS = 4096
-
-logger = logging.getLogger(__name__)
+DEFAULT_A2A_RUNTIME_ARN = (
+    "arn:aws:bedrock-agentcore:ap-southeast-2:543486084696:"
+    "runtime/credit_check_a2a_server-csdekS8so2"
+)
+DEFAULT_PUBLIC_A2A_URL = (
+    f"https://bedrock-agentcore.{DEFAULT_AWS_REGION}.amazonaws.com/"
+    f"runtimes/{quote(DEFAULT_A2A_RUNTIME_ARN, safe='')}/invocations/"
+)
 
 AWS_REGION = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION", DEFAULT_AWS_REGION))
 MODEL_ID = os.getenv("MODEL_ID", DEFAULT_MODEL)
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
-HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", "9000"))
 
 
 def _validate_inputs(name: str, address: str) -> None:
@@ -144,11 +145,10 @@ def get_credit_check(name: str, address: str) -> str:
     return format_credit_check_report(report)
 
 
-session = boto3.Session(region_name=AWS_REGION)
 model = BedrockModel(
     model_id=MODEL_ID,
     max_tokens=MAX_TOKENS,
-    boto_session=session,
+    boto_session=boto3.Session(region_name=AWS_REGION),
 )
 
 agent = Agent(
@@ -166,8 +166,10 @@ agent = Agent(
 
 a2a_server = A2AServer(
     agent=agent,
-    host=HOST,
-    port=PORT,
+    host="0.0.0.0",
+    port=9000,
+    http_url=DEFAULT_PUBLIC_A2A_URL,
+    serve_at_root=True,
     version="1.0.0",
     skills=[
         AgentSkill(
@@ -200,6 +202,5 @@ app.mount("/", a2a_server.to_fastapi_app())
 
 
 if __name__ == "__main__":
-    import uvicorn
 
-    uvicorn.run(app, host=HOST, port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=9000)
